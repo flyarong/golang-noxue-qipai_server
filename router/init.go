@@ -4,9 +4,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-var Router *gin.Engine
+var R *gin.Engine
 
 func init() {
-	Router = gin.Default()
+	R = gin.Default()
 	user()
 }

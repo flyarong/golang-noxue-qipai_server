@@ -63,6 +63,14 @@
 			"revisionTime": "2019-03-18T19:48:12Z"
 		},
 		{
+			"checksumSHA1": "2djZGANdZmAIJRzJlo3Yn6CSnQ4=",
+			"path": "github.com/ipipdotnet/ipdb-go",
+			"revision": "1b1ca88d8d9125780fc39fdeda5cea2fc7b40459",
+			"revisionTime": "2018-11-27T09:27:08Z",
+			"version": "v1.2.0",
+			"versionExact": "v1.2.0"
+		},
+		{
 			"checksumSHA1": "IXaD98gh4R+c+j3B9rzYF8m1smA=",
 			"path": "github.com/jinzhu/gorm",
 			"revision": "472c70caa40267cb89fd8facb07fe6454b578626",

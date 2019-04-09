@@ -1,22 +1,43 @@
 package router
 
 import (
-	"fmt"
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
-	"qipai/dao"
+	"net/http"
+	"qipai/enum"
 	"qipai/model"
+	"qipai/srv"
 	"qipai/utils"
 )
 
+type RegForm struct {
+	UserType enum.UserType `form:"type" json:"type" binding:"required"`
+	Nick     string        `form:"nick" json:"nick" binding:"required"`
+	Pass     string        `form:"pass" json:"pass" binding:"required"`
+	Name     string        `form:"name" json:"name" binding:"required"`
+}
+
 func user() {
 
-	Router.GET("/user/reg/:name", func(c *gin.Context) {
-		user := model.User{Name: "admin", Ip: "127.0.0.222", Address: "中国贵州", Mobile: "13758277505"}
-		fmt.Println("dao.Db",dao.Db)
-		dao.Db.Create(&user)
+	R.GET("/user/reg", func(c *gin.Context) {
+		address := utils.GetAddress(c.Query("ip"))
+		c.JSON(http.StatusOK, gin.H{"address": address})
+	})
 
-		token,_:=utils.NewToken(1,c.Param("name"))
-		c.JSON(200, token)
+	R.POST("/users", func(c *gin.Context) {
+		var reg RegForm
+		if err := c.ShouldBind(&reg); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		user := model.User{Nick: reg.Nick, Ip: c.ClientIP(), Address: utils.GetAddress(c.ClientIP()),
+			Auths: []model.Auth{{Name: reg.Name, UserType: reg.UserType, Pass: reg.Pass, Verified: true}}}
+		err := srv.User.Register(&user)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, reg)
 	})
 }

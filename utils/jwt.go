@@ -16,9 +16,11 @@ func NewToken(uid uint, username string) (string, error) {
 	} else {
 		claims["admin"] = "false"
 	}
-	claims["exp"] = time.Now().Add(time.Hour * 480).Unix() //20天有效期，过期需要重新登录获取token
+	claims["iat"] = time.Now().Unix()
+	claims["exp"] = time.Now().Add(time.Hour * 720).Unix() //20天有效期，过期需要重新登录获取token
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256,
+		claims)
 
 	// 使用自定义字符串加密 and get the complete encoded token as a string
 	tokenString, err := token.SignedString([]byte(config.Config.AppKey))
