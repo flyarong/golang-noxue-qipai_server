@@ -11,6 +11,18 @@
 			"versionExact": "v3.2.0"
 		},
 		{
+			"checksumSHA1": "6X3O3mfvOyiwV2iAb5GjxARs08c=",
+			"path": "github.com/garyburd/redigo/internal",
+			"revision": "569eae59ada904ea8db7a225c2b47165af08735a",
+			"revisionTime": "2018-04-04T16:07:26Z"
+		},
+		{
+			"checksumSHA1": "TRsWhl8gX4p8xoErljH/oyNmY5M=",
+			"path": "github.com/garyburd/redigo/redis",
+			"revision": "569eae59ada904ea8db7a225c2b47165af08735a",
+			"revisionTime": "2018-04-04T16:07:26Z"
+		},
+		{
 			"checksumSHA1": "BhMowD2DIKSd9qq8Pzh7Y3mh2/w=",
 			"path": "github.com/gin-contrib/sse",
 			"revision": "5545eab6dad3bbbd6c5ae9186383c2a9d23c0dae",
@@ -63,6 +75,12 @@
 			"revisionTime": "2019-03-18T19:48:12Z"
 		},
 		{
+			"checksumSHA1": "qLQAhxqhn+iT9QvRUcWZaIhi0Yw=",
+			"path": "github.com/golang/snappy",
+			"revision": "2a8bb927dd31d8daada140a5d09578521ce5c36a",
+			"revisionTime": "2019-02-18T23:22:22Z"
+		},
+		{
 			"checksumSHA1": "2djZGANdZmAIJRzJlo3Yn6CSnQ4=",
 			"path": "github.com/ipipdotnet/ipdb-go",
 			"revision": "1b1ca88d8d9125780fc39fdeda5cea2fc7b40459",
@@ -109,10 +127,86 @@
 			"revisionTime": "2018-07-18T01:23:57Z"
 		},
 		{
+			"checksumSHA1": "J0kszFqb75zaskY/h7CGVtY62bk=",
+			"path": "github.com/syndtr/goleveldb/leveldb",
+			"revision": "c3a204f8e96543bb0cc090385c001078f184fc46",
+			"revisionTime": "2019-03-18T03:00:20Z"
+		},
+		{
+			"checksumSHA1": "mOKzu1iJk0CSn1TImVijMggfvhY=",
+			"path": "github.com/syndtr/goleveldb/leveldb/cache",
+			"revision": "c3a204f8e96543bb0cc090385c001078f184fc46",
+			"revisionTime": "2019-03-18T03:00:20Z"
+		},
+		{
+			"checksumSHA1": "KGzbILVtQY1EzrH1Fi5UFpBoKrk=",
+			"path": "github.com/syndtr/goleveldb/leveldb/comparer",
+			"revision": "c3a204f8e96543bb0cc090385c001078f184fc46",
+			"revisionTime": "2019-03-18T03:00:20Z"
+		},
+		{
+			"checksumSHA1": "KPLIq+6AiJ0T3M8ujkuPkUHExZg=",
+			"path": "github.com/syndtr/goleveldb/leveldb/errors",
+			"revision": "c3a204f8e96543bb0cc090385c001078f184fc46",
+			"revisionTime": "2019-03-18T03:00:20Z"
+		},
+		{
+			"checksumSHA1": "oyJ4n6MbG5FL+0SEZWgeMhJbgj4=",
+			"path": "github.com/syndtr/goleveldb/leveldb/filter",
+			"revision": "c3a204f8e96543bb0cc090385c001078f184fc46",
+			"revisionTime": "2019-03-18T03:00:20Z"
+		},
+		{
+			"checksumSHA1": "gjtCOH3j2uGKyBFFzO6Dkm1cGg8=",
+			"path": "github.com/syndtr/goleveldb/leveldb/iterator",
+			"revision": "c3a204f8e96543bb0cc090385c001078f184fc46",
+			"revisionTime": "2019-03-18T03:00:20Z"
+		},
+		{
+			"checksumSHA1": "HiQVGWLBnlhm0isR9T7mAeAjoTo=",
+			"path": "github.com/syndtr/goleveldb/leveldb/journal",
+			"revision": "c3a204f8e96543bb0cc090385c001078f184fc46",
+			"revisionTime": "2019-03-18T03:00:20Z"
+		},
+		{
+			"checksumSHA1": "Z0fVd15v1zCf8SAEJNMWzRGpgE0=",
+			"path": "github.com/syndtr/goleveldb/leveldb/memdb",
+			"revision": "c3a204f8e96543bb0cc090385c001078f184fc46",
+			"revisionTime": "2019-03-18T03:00:20Z"
+		},
+		{
+			"checksumSHA1": "aDO67OGQ1pPqhTkUlkx7rX5LIFY=",
+			"path": "github.com/syndtr/goleveldb/leveldb/opt",
+			"revision": "c3a204f8e96543bb0cc090385c001078f184fc46",
+			"revisionTime": "2019-03-18T03:00:20Z"
+		},
+		{
+			"checksumSHA1": "YxotEUXLwQMc2aw+CsosLlJpWIQ=",
+			"path": "github.com/syndtr/goleveldb/leveldb/storage",
+			"revision": "c3a204f8e96543bb0cc090385c001078f184fc46",
+			"revisionTime": "2019-03-18T03:00:20Z"
+		},
+		{
+			"checksumSHA1": "5I1zCx72FubXsd6yjBrzh9NT/LI=",
+			"path": "github.com/syndtr/goleveldb/leveldb/table",
+			"revision": "c3a204f8e96543bb0cc090385c001078f184fc46",
+			"revisionTime": "2019-03-18T03:00:20Z"
+		},
+		{
+			"checksumSHA1": "mXrGK0bZN9FtKwifjw//2qwYroQ=",
+			"path": "github.com/syndtr/goleveldb/leveldb/util",
+			"revision": "c3a204f8e96543bb0cc090385c001078f184fc46",
+			"revisionTime": "2019-03-18T03:00:20Z"
+		},
+		{
 			"checksumSHA1": "hYzpZMZwMldU9a6gIeq3GgPO0fQ=",
 			"path": "github.com/ugorji/go/codec",
 			"revision": "2dc34c0b87808deb8e2c69e1625db4c14e5d0d4a",
 			"revisionTime": "2019-03-20T09:00:25Z"
+		},
+		{
+			"path": "golang.org/x/crypto/bcrypt",
+			"revision": ""
 		},
 		{
 			"path": "golang.org/x/sys/unix",

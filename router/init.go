@@ -9,4 +9,5 @@ var R *gin.Engine
 func init() {
 	R = gin.Default()
 	user()
+	common()
 }

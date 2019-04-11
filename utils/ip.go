@@ -21,5 +21,5 @@ func GetAddress(ip string) string {
 		return "unknown"
 	}
 
-	return ips["country_name"] + " " + ips["region_name"] + " " + ips["city_name"]
+	return ips["region_name"] + " " + ips["city_name"]
 }

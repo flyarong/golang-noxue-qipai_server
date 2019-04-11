@@ -11,6 +11,7 @@ import (
 
 var Db *gorm.DB
 
+
 func init() {
 	fmt.Println("config.Config.Db.Url", config.Config.Db.Url)
 	var err error

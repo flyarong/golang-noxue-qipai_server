@@ -1,3 +1,10 @@
 appkey: quiwyeuqiweyrwqoiueyrqweoiury
+lvdb: lv.db
 db:
   url: root:123456@/test?charset=utf8mb4&parseTime=True&loc=Local
+sms:
+  key: LTAITBp6uTMAfXA2
+  secret: LDciOEtGumVXnc1CToFh6g8Wi2ecRH
+  sign: 不学网  # 签名
+  reg_tpl_code: SMS_155370082 # 注册模板编号
+  loginTplCode: SMS_119082858 # 登录模板编号

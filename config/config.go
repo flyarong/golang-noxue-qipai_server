@@ -10,11 +10,21 @@ var Config Conf
 
 type Conf struct {
 	AppKey string
-	Db Db
+	Db     Db
+	Lvdb   string
+	Sms    Sms
 }
 
 type Db struct {
 	Url string
+}
+
+type Sms struct {
+	Key          string
+	Secret       string
+	Sign         string
+	RegTplCode   string
+	LoginTplCode string
 }
 
 func init() {

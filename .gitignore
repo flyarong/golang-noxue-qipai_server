@@ -1,4 +1,5 @@
 .idea
+/lv.db
 *.exe
 qipai
 /log
