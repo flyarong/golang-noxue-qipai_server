@@ -1,9 +1,12 @@
 package router
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
+	"math/rand"
 	"net/http"
+	"qipai/dao"
 	"qipai/enum"
 	"qipai/middleware"
 	"qipai/model"
@@ -16,7 +19,7 @@ func user() {
 	r.POST("/login", userLoginFunc)
 	r.POST("/token/refresh", userTokenRefreshFunc)
 	r.POST("", userRegFunc)
-
+	r.PUT("/reset",userResetFunc)
 	ar := r.Group("")
 	ar.Use(middleware.JWTAuth())
 	ar.POST("/bind", userBindFunc)
@@ -77,8 +80,8 @@ func userRegFunc(c *gin.Context) {
 	}
 
 	// 检查手机验证码，无论对错都删除验证码，防止暴力破解
-	code :=utils.Lv.Get("code_"+reg.Name)
-	utils.Lv.Del("code_"+reg.Name)
+	code := utils.Lv.Get("code_" + reg.Name)
+	utils.Lv.Del("code_" + reg.Name)
 	if code != reg.Code {
 		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("手机验证码错误"))
 		return
@@ -86,6 +89,7 @@ func userRegFunc(c *gin.Context) {
 
 	user := model.User{Nick: reg.Nick, Ip: c.ClientIP(), Address: utils.GetAddress(c.ClientIP()),
 		Auths: []model.Auth{{Name: reg.Name, UserType: reg.UserType, Pass: reg.Pass, Verified: true}}}
+	user.Avatar = fmt.Sprintf("/avatar/Avatar%d.png", rand.Intn(199))
 	err := srv.User.Register(&user)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, utils.Msg().Code(-1).Msg(err.Error()))
@@ -93,6 +97,47 @@ func userRegFunc(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, utils.Msg().Msg("注册成功"))
+}
+
+func userResetFunc(c *gin.Context) {
+
+	type ResetForm struct {
+		UserType enum.UserType `form:"type" json:"type" binding:"required"`
+		Pass     string        `form:"pass" json:"pass" binding:"required"`
+		Name     string        `form:"name" json:"name" binding:"required"`
+		Code     string        `form:"code" json:"code" binding:"required"`
+	}
+
+	var reset ResetForm
+	if err := c.ShouldBind(&reset); err != nil {
+		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg(err.Error()))
+		return
+	}
+
+	if reset.UserType != enum.Mobile {
+		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("目前仅支持手机注册"))
+		return
+	}
+
+	// 检查手机验证码，无论对错都删除验证码，防止暴力破解
+	code := utils.Lv.Get("code_" + reset.Name)
+	utils.Lv.Del("code_" + reset.Name)
+	if code != reset.Code {
+		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("手机验证码错误"))
+		return
+	}
+
+	var a model.Auth
+	dao.Db.Where(&model.Auth{UserType:reset.UserType,Name:reset.Name}).First(&a)
+	if a.ID==0{
+		c.JSON(http.StatusInternalServerError, utils.Msg().Code(-1).Msg("账号不存在"))
+		return
+	}
+
+	a.Pass = reset.Pass
+	dao.Db.Save(&a)
+
+	c.JSON(http.StatusOK, utils.Msg().Msg("密码修改成功"))
 }
 
 func userBindFunc(c *gin.Context) {
@@ -111,8 +156,8 @@ func userInfoFunc(c *gin.Context) {
 	info := c.MustGet("user").(*utils.UserInfo)
 	user, err := srv.User.GetInfo(info.Uid)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"msg": err.Error()})
+		c.JSON(http.StatusInternalServerError, utils.Msg().Code(-1).Msg(err.Error()))
 		return
 	}
-	c.JSON(http.StatusOK, user)
+	c.JSON(http.StatusOK, utils.Msg().AddData("user", user))
 }

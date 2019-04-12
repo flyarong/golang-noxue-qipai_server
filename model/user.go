@@ -14,14 +14,17 @@ type Auth struct {
 	Verified bool
 	UserId   int
 	User     User `gorm:"foreignkey:UserId" json:"-"`
+	Thirdly  bool `json:"-"`
 }
 
 type User struct {
 	gorm.Model
-	Nick    string `gorm:"size:20"`
-	Mobile  string `gorm:"size:20"`
-	Ip      string `gorm:"size:20"`
-	Address string `gorm:"size:50"`
+	Nick    string `gorm:"size:20" json:"nick"`
+	Avatar  string `gorm:"size:120" json:"avatar"`
+	Mobile  string `gorm:"size:20" json:"mobile"`
+	Ip      string `gorm:"size:20" json:"ip"`
+	Address string `gorm:"size:50" json:"address"`
+	Card    int    `json:"card"`
 	Auths   []Auth ` json:"-"`
 }
 

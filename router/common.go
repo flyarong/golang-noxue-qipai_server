@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"qipai/utils"
 	"regexp"
-	"strconv"
 	"time"
 )
 
@@ -33,11 +32,11 @@ func codeFunc(c *gin.Context) {
 
 	code := rand.Intn(9000) + 1000
 
-	err := utils.SendSmsRegCode(phone, strconv.Itoa(code))
-	if !err {
-		c.JSON(http.StatusBadRequest, utils.Msg().Msg("验证码已发送失败，请联系客服"))
-		return
-	}
+	//err := utils.SendSmsRegCode(phone, strconv.Itoa(code))
+	//if !err {
+	//	c.JSON(http.StatusBadRequest, utils.Msg().Msg("验证码已发送失败，请联系客服"))
+	//	return
+	//}
 	utils.Lv.PutEx("code_"+phone, fmt.Sprint(code), time.Minute*5)
 	log.Println("手机验证码：", code)
 
