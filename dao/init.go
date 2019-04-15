@@ -23,6 +23,5 @@ func init() {
 	Db = Db.Set("gorm:table_options", "ENGINE=InnoDB  DEFAULT CHARSET=utf8mb4;")
 	Db.LogMode(true)
 	//defer Db.Close()
-	Db.AutoMigrate(&model.Auth{}, &model.User{})
-
+	Db.AutoMigrate(&model.Auth{}, &model.User{},&model.Room{},&model.Club{},&model.ClubUser{},&model.Game{})
 }

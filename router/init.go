@@ -10,4 +10,7 @@ func init() {
 	R = gin.Default()
 	user()
 	common()
+	game()
+	room()
+	club()
 }
