@@ -47,18 +47,17 @@ type ClubUserType int
 
 const (
 	ClubUserWait    ClubUserType = 0 // 等待加入
-	ClubUserVip  ClubUserType = 1 // 正式用户
+	ClubUserVip     ClubUserType = 1 // 正式用户
 	ClubUserDisable ClubUserType = 2 // 冻结的用户
 )
-
 
 // 翻倍规则
 type TimesType int
 
 const (
-	TimesType1 TimesType = 0  // 牛一~牛牛 分别对应 1~10倍
-	TimesType2 TimesType = 1  // 牛牛x5 牛九x4 牛八x3 牛七x2
-	TimesType3 TimesType = 2  // 牛牛x3 牛九x2 牛八x2 牛七x2
-	TimesType4 TimesType = 3  // 牛牛x3 牛九x2牛八x2 牛七x1
-	TimesType5 TimesType = 4  // 牛牛x4 牛九x3 牛八x2 牛七x2
+	TimesType1 TimesType = 0 // 牛一~牛牛 分别对应 1~10倍
+	TimesType2 TimesType = 1 // 牛牛x5 牛九x4 牛八x3 牛七x2
+	TimesType3 TimesType = 2 // 牛牛x3 牛九x2 牛八x2 牛七x2
+	TimesType4 TimesType = 3 // 牛牛x3 牛九x2牛八x2 牛七x1
+	TimesType5 TimesType = 4 // 牛牛x4 牛九x3 牛八x2 牛七x2
 )

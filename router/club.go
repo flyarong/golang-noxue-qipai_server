@@ -28,7 +28,7 @@ func club() {
 	// /1/users会员列表  /1/users?verify 待审核会员列表
 	r.GET("/:cid/users", clubUsers)
 	// 编辑会员状态：设为管理 取消管理  冻结 取消冻结 设为代付 取消代付 审核通过用户  移除用户
-	r.PUT("/user/:cid", clubEditUserFunc)
+	r.PUT("/user", clubEditUserFunc)
 }
 
 func clubCreateFunc(c *gin.Context) {
@@ -213,5 +213,76 @@ func clubUsers(c *gin.Context) {
 }
 
 func clubEditUserFunc(c *gin.Context) {
+	type formAction struct {
+		// 编辑会员状态：设为管理(admin) 取消管理(-admin)  冻结(disable) 取消冻结(-disable) 设为代付(pay) 取消代付(-pay) 审核通过用户(check)  移除用户(remove)
+		Action string `form:"action" json:"action" binding:"required"`
+		Uid    uint   `form:"uid" json:"uid" binding:"required"`
+		Cid    uint   `form:"cid" json:"cid" binding:"required"`
+	}
+	var form formAction
+	err := c.ShouldBind(&form)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg(err.Error()))
+		return
+	}
+	info := c.MustGet("user").(*utils.UserInfo)
 
+	isAdmin := srv.Club.IsAdmin(info.Uid, form.Cid)
+	isBoss := srv.Club.IsBoss(info.Uid, form.Cid)
+	// 只有管理员或创建者可以操作
+	if !isAdmin && !isBoss {
+		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("您不是管理员或老板，无法操作！"))
+		return
+	}
+
+	// 自己不能编辑自己
+	if info.Uid == form.Uid {
+		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("您不能对自己进行操作！"))
+		return
+	}
+
+	switch form.Action {
+	case "admin":
+		// 只有老板可以设置管理员
+		if !isBoss {
+			c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("您不是老板，无法设置管理员！"))
+			return
+		}
+		err = srv.Club.SetAdmin(form.Cid, form.Uid, true)
+	case "-admin":
+		// 只有老板可以取消管理员
+		if !isBoss {
+			c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("您不是老板，无法取消管理员！"))
+			return
+		}
+		err = srv.Club.SetAdmin(form.Cid, form.Uid, false)
+	case "disable":
+		err = srv.Club.SetDisable(form.Cid, form.Uid, true)
+	case "-disable":
+		err = srv.Club.SetDisable(form.Cid, form.Uid, false)
+	case "pay":
+		if !isBoss {
+			c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("您不是老板，无法设置代付！"))
+			return
+		}
+		err = srv.Club.SetPay(form.Cid, form.Uid, true)
+	case "-pay":
+		if !isBoss {
+			c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("您不是老板，无法取消代付！"))
+			return
+		}
+		err = srv.Club.SetPay(form.Cid, form.Uid, false)
+	case "check":
+		// 审核通过，就是设置为普通用户，跟取消冻结操作一样
+		err = srv.Club.SetDisable(form.Cid, form.Uid, false)
+	case "remove":
+		if !isBoss {
+			c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("您不是老板，无法取消代付！"))
+			return
+		}
+		srv.Club.RemoveClubUser(form.Cid, form.Uid)
+	default:
+		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("不支持这个操作:"+form.Action))
+	}
+	c.JSON(http.StatusOK, utils.Msg().Msg("操作成功"))
 }

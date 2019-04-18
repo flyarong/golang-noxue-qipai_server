@@ -102,3 +102,86 @@ func (this *clubSrv) Users(clubId uint) (users []model.User) {
 	dao.Db.Where(ids).Find(&users)
 	return
 }
+
+func (this *clubSrv) getClubUser(clubId, userId uint) (cu model.ClubUser, err error) {
+	if !this.IsClubUser(userId, clubId) {
+		err = errors.New("用户不属于该俱乐部")
+		return
+	}
+	dao.Db.Where(&model.ClubUser{ClubId: clubId, Uid: userId}).First(&cu)
+	if cu.ID == 0 {
+		err = errors.New("没在俱乐部找到该用户")
+		return
+	}
+
+	return
+}
+
+// 设置、取消管理
+func (this *clubSrv) SetAdmin(clubId, userId uint, ok bool) (err error) {
+	var cu model.ClubUser
+	cu, err = this.getClubUser(clubId, userId)
+	if err != nil {
+		return
+	}
+	if cu.Admin {
+		err = errors.New("该用户已经是管理员")
+		return
+	}
+	cu.Admin = ok
+	dao.Db.Save(cu)
+	return
+}
+
+// 冻结、取消冻结,ok 为true表示冻结
+func (this *clubSrv) SetDisable(clubId, userId uint, ok bool) (err error) {
+	var cu model.ClubUser
+	cu, err = this.getClubUser(clubId, userId)
+	if err != nil {
+		return
+	}
+	if ok {
+		cu.Status = enum.ClubUserDisable
+	} else {
+		cu.Status = enum.ClubUserVip
+	}
+	dao.Db.Save(cu)
+	return
+}
+
+// 设置、取消代付
+func (this *clubSrv) SetPay(clubId, userId uint, ok bool) (err error) {
+	var cu model.ClubUser
+	cu, err = this.getClubUser(clubId, userId)
+	if err != nil {
+		return
+	}
+	cu.Payer = ok
+	dao.Db.Save(cu)
+	return
+}
+
+// 移除用户
+func (this *clubSrv) RemoveClubUser(clubId, userId uint) {
+	dao.Db.Unscoped().Delete(&model.ClubUser{ClubId: clubId, Uid: userId})
+}
+
+// 检查操作人员是不是俱乐部管理员
+func (this *clubSrv) IsAdmin(opUid, clubId uint) (ok bool) {
+	cu, err := this.getClubUser(clubId, opUid)
+	if err != nil {
+		return
+	}
+	ok = cu.Admin
+	return
+}
+
+// 检查操作人员是不是俱乐部老板
+func (clubSrv) IsBoss(opUid, clubId uint) (ok bool) {
+	var club model.Club
+	dao.Db.First(&club, clubId)
+	if club.Uid == opUid {
+		ok = true
+	}
+	return
+}
