@@ -20,7 +20,7 @@ const (
 type StartType int
 
 const (
-	StartFirst StartType = 0 // 第一个入场的开始
+	StartBoss  StartType = 0 // 房主开始
 	StartReady StartType = 1 // 准备好开始
 )
 
@@ -60,4 +60,15 @@ const (
 	TimesType3 TimesType = 2 // 牛牛x3 牛九x2 牛八x2 牛七x2
 	TimesType4 TimesType = 3 // 牛牛x3 牛九x2牛八x2 牛七x1
 	TimesType5 TimesType = 4 // 牛牛x4 牛九x3 牛八x2 牛七x2
+)
+
+// 底分类型
+type ScoreType int
+
+const (
+	ScoreType1 ScoreType = 0
+	ScoreType2 ScoreType = 1
+	ScoreType3 ScoreType = 2
+	ScoreType4 ScoreType = 3
+	ScoreType5 ScoreType = 4
 )

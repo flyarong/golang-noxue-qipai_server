@@ -33,8 +33,8 @@ func club() {
 
 func clubCreateFunc(c *gin.Context) {
 	type ClubForm struct {
-		Score     string         `form:"score" json:"score" binding:"required"` // 以竖线分割的底分方式 如 10|20
-		Check     bool           `form:"check" json:"check"`                    // 是否审查
+		Score     enum.ScoreType `form:"score" json:"score"` // 底分方式
+		Players   int            `form:"players" json:"players"`                // 玩家个数
 		Count     int            `form:"count" json:"count" binding:"required"` // 局数
 		StartType enum.StartType `form:"start" json:"start"`                    // 0 第一个入场的开始  1 全准备好开始
 		Pay       enum.PayType   `form:"pay" json:"pay"`                        // 0 房主  1 AA
@@ -73,7 +73,7 @@ func clubCreateFunc(c *gin.Context) {
 	}
 
 	// 限制特殊牌型 全部选中状态为7位2进制都是1，最大为1111111==127
-	if form.Special >= 127 || form.Special < 0 {
+	if form.Special > 127 || form.Special < 0 {
 		c.JSON(http.StatusBadRequest, utils.Msg().Code(-6).Msg("特殊牌型取值不合法"))
 		return
 	}
@@ -84,9 +84,14 @@ func clubCreateFunc(c *gin.Context) {
 		return
 	}
 
+	// 底分取值不合法
+	if form.Score < 0 || form.Score > 5 {
+		c.JSON(http.StatusBadRequest, utils.Msg().Code(-7).Msg("底分类型取值只能在0-5之间"))
+		return
+	}
+
 	info := c.MustGet("user").(*utils.UserInfo)
 	club := &model.Club{}
-	club.Check = form.Check
 	club.Special = form.Special
 	club.King = form.King
 	club.Pay = form.Pay
@@ -94,6 +99,13 @@ func clubCreateFunc(c *gin.Context) {
 	club.Count = form.Count
 	club.Score = form.Score
 	club.Times = form.Times
+
+	// 如果是老板支付，就默认需要审核才能进入俱乐部
+	if club.Pay == enum.PayBoss {
+		club.Check = true
+	} else if club.Pay == enum.PayAA {
+		club.Check = false
+	}
 
 	club.Uid = info.Uid
 
@@ -107,12 +119,12 @@ func clubCreateFunc(c *gin.Context) {
 
 func clubsFunc(c *gin.Context) {
 	type clubV struct {
-		Id      uint         `json:"id"`
-		Score   string       `json:"score"`
-		Pay     enum.PayType `json:"pay"`
-		Count   int          `json:"count"`
-		Boss    string       `json:"boss"`
-		BossUid uint         `json:"bossUid"`
+		Id      uint           `json:"id"`
+		Score   enum.ScoreType `json:"score"`
+		Pay     enum.PayType   `json:"pay"`
+		Count   int            `json:"count"`
+		Boss    string         `json:"boss"`
+		BossUid uint           `json:"bossUid"`
 	}
 
 	info := c.MustGet("user").(*utils.UserInfo)

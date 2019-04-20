@@ -14,7 +14,8 @@ type Club struct {
 
 type Room struct {
 	gorm.Model
-	Score     string          // 底分 以竖线分割的底分方式 如 10|20
+	Score     enum.ScoreType  // 底分 以竖线分割的底分方式 如 10|20
+	Players   int             // 玩家个数
 	Count     int             // 局数
 	Current   int             // 当前第几局
 	StartType enum.StartType  // 游戏开始方式
