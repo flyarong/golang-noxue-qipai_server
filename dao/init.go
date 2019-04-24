@@ -11,7 +11,6 @@ import (
 
 var Db *gorm.DB
 
-
 func init() {
 	fmt.Println("config.Config.Db.Url", config.Config.Db.Url)
 	var err error
@@ -23,5 +22,5 @@ func init() {
 	Db = Db.Set("gorm:table_options", "ENGINE=InnoDB  DEFAULT CHARSET=utf8mb4;")
 	Db.LogMode(true)
 	//defer Db.Close()
-	Db.AutoMigrate(&model.Auth{}, &model.User{},&model.Room{},&model.Club{},&model.ClubUser{},&model.Game{})
+	Db.AutoMigrate(&model.Auth{}, &model.User{}, &model.Room{}, &model.Club{}, &model.ClubRoom{}, &model.ClubUser{}, &model.Game{})
 }

@@ -185,3 +185,16 @@ func (clubSrv) IsBoss(opUid, clubId uint) (ok bool) {
 	}
 	return
 }
+
+// 指定用户获取指定俱乐部
+func (this *clubSrv) GetClub(uid, cid uint)(club model.Club, err error) {
+	if !this.IsClubUser(uid,cid) {
+		err = errors.New("您不是该俱乐部成员")
+		return
+	}
+	dao.Db.First(&club, cid)
+	if club.ID == 0 {
+		err = errors.New("没找到您指定的俱乐部")
+	}
+	return
+}
