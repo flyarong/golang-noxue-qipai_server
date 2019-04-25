@@ -24,13 +24,13 @@ func club() {
 	// 解散俱乐部
 	r.DELETE("/:cid", clubDeleteFunc)
 	// 修改俱乐部名称和公告
-	r.PUT("/info/:cid", clubEditFunc)
+	r.PUT("/:cid", clubEditFunc)
 	// 加入俱乐部
 	r.POST("/:cid/user", clubJoinFunc)
 	// /1/users会员列表  /1/users?verify 待审核会员列表
-	r.GET("/:cid/users", clubUsersFunc)
+	r.GET("/:cid/users/*type", clubUsersFunc)
 	// 编辑会员状态：设为管理 取消管理  冻结 取消冻结 设为代付 取消代付 审核通过用户  移除用户
-	r.PUT("/user", clubEditUserFunc)
+	r.PUT("/:cid/user/:uid/*action", clubEditUserFunc) // 这里做了路由修改，对应的功能代码也需要修改，记录一下，修改好后，删除该注释
 }
 
 func clubCreateFunc(c *gin.Context) {
@@ -126,6 +126,7 @@ func clubGetFunc(c *gin.Context) {
 		Name      string         `json:"name"`       // 俱乐部名称
 		Check     bool           `json:"check"`      // 是否审查
 		Notice    string         `json:"notice"`     // 公告
+		RollText  string         `json:"roll_text"`  // 俱乐部大厅滚动文字
 		Score     enum.ScoreType `json:"score"`      // 底分 以竖线分割的底分方式
 		Players   int            `json:"players"`    // 玩家个数
 		Count     int            `json:"count"`      // 局数
@@ -203,8 +204,10 @@ func clubDeleteFunc(c *gin.Context) {
 
 func clubEditFunc(c *gin.Context) {
 	type infoFrom struct {
-		Name   string `form:"name" json:"name" binding:"required"`
-		Notice string `form:"notice" json:"notice" binding:"required"`
+		Check  bool   `form:"check" json:"check"`
+		Close  bool   `form:"close" json:"close"`
+		Name   string `form:"name" json:"name"`
+		Notice string `form:"notice" json:"notice"`
 	}
 	cid, err := strconv.Atoi(c.Param("cid"))
 	if err != nil {
@@ -218,7 +221,7 @@ func clubEditFunc(c *gin.Context) {
 		return
 	}
 
-	if err := srv.Club.UpdateNameAndNotice(uint(cid), form.Name, form.Notice); err != nil {
+	if err := srv.Club.UpdateNameAndNotice(uint(cid), form.Check,form.Close,form.Name, form.Notice); err != nil {
 		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg(err.Error()))
 		return
 	}
@@ -243,11 +246,6 @@ func clubJoinFunc(c *gin.Context) {
 
 func clubUsersFunc(c *gin.Context) {
 
-	type userV struct {
-		Nick string `json:"nick"`
-		Id   uint   `json:"id"`
-	}
-
 	info := c.MustGet("user").(*utils.UserInfo)
 	cid, err := strconv.Atoi(c.Param("cid"))
 	if err != nil {
@@ -261,11 +259,8 @@ func clubUsersFunc(c *gin.Context) {
 	}
 
 	users := srv.Club.Users(uint(cid))
-	var usersV []userV
-	for _, v := range users {
-		usersV = append(usersV, userV{Nick: v.Nick, Id: v.ID})
-	}
-	c.JSON(http.StatusOK, utils.Msg().Msg("获取俱乐部用户列表成功").AddData("users", usersV))
+
+	c.JSON(http.StatusOK, utils.Msg().Msg("获取俱乐部用户列表成功").AddData("users", users))
 }
 
 func clubEditUserFunc(c *gin.Context) {

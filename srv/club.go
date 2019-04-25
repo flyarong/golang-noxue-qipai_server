@@ -6,6 +6,7 @@ import (
 	"qipai/dao"
 	"qipai/enum"
 	"qipai/model"
+	"time"
 )
 
 var Club clubSrv
@@ -72,16 +73,18 @@ func (clubSrv) Join(clubId, userId uint) (err error) {
 	return
 }
 
-func (clubSrv) UpdateNameAndNotice(clubId uint, name, notice string) (err error) {
+func (clubSrv) UpdateNameAndNotice(clubId uint, check, close bool, name, notice string) (err error) {
 	var club model.Club
 	dao.Db.First(&club, clubId)
 	if club.ID == 0 {
 		err = errors.New("该俱乐部不存在")
 		return
 	}
+	club.Check = check
+	club.Close = close
 	club.Name = name
 	club.Notice = notice
-	dao.Db.Save(club)
+	dao.Db.Save(&club)
 	return
 }
 
@@ -92,14 +95,31 @@ func (this *clubSrv) IsClubUser(userId, clubId uint) (ok bool) {
 	return
 }
 
-func (this *clubSrv) Users(clubId uint) (users []model.User) {
-	var cus []model.ClubUser
-	var ids []uint
-	dao.Db.Where(&model.ClubUser{ClubId: clubId}).Find(&cus)
-	for _, v := range cus {
-		ids = append(ids, v.Uid)
-	}
-	dao.Db.Where(ids).Find(&users)
+type ClubUser struct {
+	Id        uint              `json:"id"`
+	Nick      string            `json:"nick"`
+	Avatar    string            `json:"avatar"`
+	ClubId    uint              `json:"club_id"` // 俱乐部编号
+	Status    enum.ClubUserType `json:"status"`  // 0 等待审核，1 正式用户， 2 冻结用户
+	Payer     bool              `json:"payer"`   // 是否是代付 true 是代付
+	Admin     bool              `json:"admin"`   // 是否是管理员 true 是管理员
+	CreatedAt time.Time         `json:"created_at"`
+	DeletedAt *time.Time        `json:"deleted_at"`
+}
+
+func (this *clubSrv) Users(clubId uint) (users []ClubUser) {
+
+	dao.Db.Table("club_users").
+		Select("users.id,users.nick, users.avatar,club_users.payer,club_users.admin,club_users.status,club_users.created_at,club_users.deleted_at").
+		Joins("join users on club_users.uid=users.id").Where("club_users.club_id = ?", clubId).Scan(&users)
+
+	//var cus []model.ClubUser
+	//var ids []uint
+	//dao.Db.Where(&model.ClubUser{ClubId: clubId}).Find(&cus)
+	//for _, v := range cus {
+	//	ids = append(ids, v.Uid)
+	//}
+	//dao.Db.Where(ids).Find(&users)
 	return
 }
 
@@ -129,7 +149,7 @@ func (this *clubSrv) SetAdmin(clubId, userId uint, ok bool) (err error) {
 		return
 	}
 	cu.Admin = ok
-	dao.Db.Save(cu)
+	dao.Db.Save(&cu)
 	return
 }
 
@@ -187,8 +207,8 @@ func (clubSrv) IsBoss(opUid, clubId uint) (ok bool) {
 }
 
 // 指定用户获取指定俱乐部
-func (this *clubSrv) GetClub(uid, cid uint)(club model.Club, err error) {
-	if !this.IsClubUser(uid,cid) {
+func (this *clubSrv) GetClub(uid, cid uint) (club model.Club, err error) {
+	if !this.IsClubUser(uid, cid) {
 		err = errors.New("您不是该俱乐部成员")
 		return
 	}

@@ -6,10 +6,11 @@ import (
 )
 
 type Club struct {
-	Name   string // 俱乐部名称
-	Check  bool   // 是否审查
-	Notice string // 公告
-	Close  bool   // 是否打烊
+	Name     string // 俱乐部名称
+	Check    bool   // 是否审查
+	Notice   string // 公告
+	RollText string // 俱乐部大厅滚动文字
+	Close    bool   // 是否打烊
 	ClubRoomBase
 }
 
