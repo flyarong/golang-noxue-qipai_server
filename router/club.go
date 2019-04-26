@@ -2,6 +2,7 @@ package router
 
 import (
 	"github.com/gin-gonic/gin"
+	"log"
 	"net/http"
 	"qipai/dao"
 	"qipai/enum"
@@ -28,7 +29,7 @@ func club() {
 	// 加入俱乐部
 	r.POST("/:cid/user", clubJoinFunc)
 	// /1/users会员列表  /1/users?verify 待审核会员列表
-	r.GET("/:cid/users/*type", clubUsersFunc)
+	r.GET("/:cid/users", clubUsersFunc)
 	// 编辑会员状态：设为管理 取消管理  冻结 取消冻结 设为代付 取消代付 审核通过用户  移除用户
 	r.PUT("/:cid/user/:uid/*action", clubEditUserFunc) // 这里做了路由修改，对应的功能代码也需要修改，记录一下，修改好后，删除该注释
 }
@@ -122,7 +123,7 @@ func clubCreateFunc(c *gin.Context) {
 func clubGetFunc(c *gin.Context) {
 
 	type clubV struct {
-		Id        uint           `json:"id"`
+		Id        uint           `json:"id" xml:"ID"`
 		Name      string         `json:"name"`       // 俱乐部名称
 		Check     bool           `json:"check"`      // 是否审查
 		Notice    string         `json:"notice"`     // 公告
@@ -137,6 +138,7 @@ func clubGetFunc(c *gin.Context) {
 		King      enum.KingType  `json:"king"`       // 王癞 0 无王癞  1 经典王癞 2 疯狂王癞
 		Uid       uint           `json:"uid"`        // 老板
 		Close     bool           `json:"close"`      // 是否打烊
+		PayerUid  uint           `json:"payer_uid"`  // 代付用户id
 	}
 
 	info := c.MustGet("user").(*utils.UserInfo)
@@ -221,7 +223,7 @@ func clubEditFunc(c *gin.Context) {
 		return
 	}
 
-	if err := srv.Club.UpdateNameAndNotice(uint(cid), form.Check,form.Close,form.Name, form.Notice); err != nil {
+	if err := srv.Club.UpdateNameAndNotice(uint(cid), form.Check, form.Close, form.Name, form.Notice); err != nil {
 		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg(err.Error()))
 		return
 	}
@@ -264,22 +266,28 @@ func clubUsersFunc(c *gin.Context) {
 }
 
 func clubEditUserFunc(c *gin.Context) {
-	type formAction struct {
-		// 编辑会员状态：设为管理(admin) 取消管理(-admin)  冻结(disable) 取消冻结(-disable) 设为代付(pay) 取消代付(-pay) 审核通过用户(check)  移除用户(remove)
-		Action string `form:"action" json:"action" binding:"required"`
-		Uid    uint   `form:"uid" json:"uid" binding:"required"`
-		Cid    uint   `form:"cid" json:"cid" binding:"required"`
-	}
-	var form formAction
-	err := c.ShouldBind(&form)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg(err.Error()))
-		return
-	}
+
 	info := c.MustGet("user").(*utils.UserInfo)
 
-	isAdmin := srv.Club.IsAdmin(info.Uid, form.Cid)
-	isBoss := srv.Club.IsBoss(info.Uid, form.Cid)
+	cid, err := strconv.Atoi(c.Param("cid"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("俱乐部编号只能是数字"))
+		return
+	}
+
+	uid, err := strconv.Atoi(c.Param("uid"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("俱乐部编号只能是数字"))
+		return
+	}
+
+	// 编辑会员状态：设为管理(admin) 取消管理(-admin)  冻结(disable) 取消冻结(-disable) 设为代付(pay) 取消代付(-pay) 审核通过用户(add)  移除用户(-add)
+	action := c.Param("action")
+	
+	log.Println("action:"+action[1:])
+
+	isAdmin := srv.Club.IsAdmin(info.Uid, uint(cid))
+	isBoss := srv.Club.IsBoss(info.Uid, uint(cid))
 	// 只有管理员或创建者可以操作
 	if !isAdmin && !isBoss {
 		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("您不是管理员或老板，无法操作！"))
@@ -287,53 +295,71 @@ func clubEditUserFunc(c *gin.Context) {
 	}
 
 	// 自己不能编辑自己
-	if info.Uid == form.Uid {
+	if info.Uid == uint(uid) {
 		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("您不能对自己进行操作！"))
 		return
 	}
 
-	switch form.Action {
+	err = nil
+
+	switch action[1:] {
 	case "admin":
 		// 只有老板可以设置管理员
 		if !isBoss {
 			c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("您不是老板，无法设置管理员！"))
 			return
 		}
-		err = srv.Club.SetAdmin(form.Cid, form.Uid, true)
+		err = srv.Club.SetAdmin(uint(cid), uint(uid), true)
 	case "-admin":
 		// 只有老板可以取消管理员
 		if !isBoss {
 			c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("您不是老板，无法取消管理员！"))
 			return
 		}
-		err = srv.Club.SetAdmin(form.Cid, form.Uid, false)
+		err = srv.Club.SetAdmin(uint(cid), uint(uid), false)
 	case "disable":
-		err = srv.Club.SetDisable(form.Cid, form.Uid, true)
+		// 管理员 不能冻结管理员或老板
+		if isAdmin && (srv.Club.IsBoss(uint(uid), uint(cid)) || srv.Club.IsAdmin(uint(uid), uint(cid))  ){
+			c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("管理员无法冻结其他管理员和老板"))
+			return
+		}
+		err = srv.Club.SetDisable(uint(cid), uint(uid), true)
 	case "-disable":
-		err = srv.Club.SetDisable(form.Cid, form.Uid, false)
+		// 管理员 不能接触冻结管理员或老板
+		if isAdmin && (srv.Club.IsBoss(uint(uid), uint(cid)) || srv.Club.IsAdmin(uint(uid), uint(cid))  ){
+			c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("管理员无法接触冻结管理员和老板"))
+			return
+		}
+		err = srv.Club.SetDisable(uint(cid), uint(uid), false)
 	case "pay":
 		if !isBoss {
 			c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("您不是老板，无法设置代付！"))
 			return
 		}
-		err = srv.Club.SetPay(form.Cid, form.Uid, true)
+		err = srv.Club.SetPay(uint(cid), uint(uid), true)
 	case "-pay":
 		if !isBoss {
 			c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("您不是老板，无法取消代付！"))
 			return
 		}
-		err = srv.Club.SetPay(form.Cid, form.Uid, false)
-	case "check":
+		err = srv.Club.SetPay(uint(cid), uint(uid), false)
+	case "add":
 		// 审核通过，就是设置为普通用户，跟取消冻结操作一样
-		err = srv.Club.SetDisable(form.Cid, form.Uid, false)
-	case "remove":
-		if !isBoss {
-			c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("您不是老板，无法取消代付！"))
+		err = srv.Club.SetDisable(uint(cid), uint(uid), false)
+	case "-add":
+		// 管理员 不能移除管理员或老板
+		if isAdmin && (srv.Club.IsBoss(uint(uid), uint(cid)) || srv.Club.IsAdmin(uint(uid), uint(cid))  ){
+			c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("管理员无法移除其他管理员和老板"))
 			return
 		}
-		srv.Club.RemoveClubUser(form.Cid, form.Uid)
+		err = srv.Club.RemoveClubUser(uint(cid), uint(uid))
 	default:
-		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("不支持这个操作:"+form.Action))
+		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("不支持这个操作:"+action))
+	}
+
+	if err!=nil {
+		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg(err.Error()))
+		return
 	}
 	c.JSON(http.StatusOK, utils.Msg().Msg("操作成功"))
 }

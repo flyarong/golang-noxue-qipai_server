@@ -12,6 +12,7 @@ import (
 	"qipai/model"
 	"qipai/srv"
 	"qipai/utils"
+	"time"
 )
 
 func user() {
@@ -19,7 +20,7 @@ func user() {
 	r.POST("/login", userLoginFunc)
 	r.POST("/token/refresh", userTokenRefreshFunc)
 	r.POST("", userRegFunc)
-	r.PUT("/reset",userResetFunc)
+	r.PUT("/reset", userResetFunc)
 	ar := r.Group("")
 	ar.Use(middleware.JWTAuth())
 	ar.POST("/bind", userBindFunc)
@@ -128,8 +129,8 @@ func userResetFunc(c *gin.Context) {
 	}
 
 	var a model.Auth
-	dao.Db.Where(&model.Auth{UserType:reset.UserType,Name:reset.Name}).First(&a)
-	if a.ID==0{
+	dao.Db.Where(&model.Auth{UserType: reset.UserType, Name: reset.Name}).First(&a)
+	if a.ID == 0 {
 		c.JSON(http.StatusInternalServerError, utils.Msg().Code(-1).Msg("账号不存在"))
 		return
 	}
@@ -153,11 +154,23 @@ func userBindFunc(c *gin.Context) {
 }
 
 func userInfoFunc(c *gin.Context) {
+	type userV struct {
+		ID        uint      `json:"id"`
+		Nick      string    `gorm:"size:20" json:"nick"`
+		Avatar    string    `gorm:"size:120" json:"avatar"`
+		Mobile    string    `gorm:"size:20" json:"mobile"`
+		Ip        string    `gorm:"size:20" json:"ip"`
+		Address   string    `gorm:"size:50" json:"address"`
+		Card      int       `json:"card"`
+		CreatedAt time.Time `json:"created_at"`
+	}
 	info := c.MustGet("user").(*utils.UserInfo)
 	user, err := srv.User.GetInfo(info.Uid)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, utils.Msg().Code(-1).Msg(err.Error()))
 		return
 	}
-	c.JSON(http.StatusOK, utils.Msg().AddData("user", user))
+	var uv userV
+	utils.Copy(user,&uv)
+	c.JSON(http.StatusOK, utils.Msg().AddData("user", uv))
 }

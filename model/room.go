@@ -11,6 +11,7 @@ type Club struct {
 	Notice   string // 公告
 	RollText string // 俱乐部大厅滚动文字
 	Close    bool   // 是否打烊
+	PayerUid uint   // 代付用户id
 	ClubRoomBase
 }
 
@@ -46,7 +47,6 @@ type ClubUser struct {
 	Uid    uint              // 用户编号
 	ClubId uint              // 俱乐部编号
 	Status enum.ClubUserType // 0 等待审核，1 正式用户， 2 冻结用户
-	Payer  bool              // 是否是代付 true 是代付
 	Admin  bool              // 是否是管理员 true 是管理员
 }
 

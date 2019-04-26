@@ -31,7 +31,7 @@ func (clubSrv) MyClubs(uid uint) (clubs []model.Club) {
 
 	// 我加入的
 	var cus []model.ClubUser
-	dao.Db.Where(&model.ClubUser{Uid: uid}).Find(&cus)
+	dao.Db.Where("uid = ? and status <> 0",uid).Find(&cus)
 	var ids []uint
 	for _, v := range cus {
 		ids = append(ids, v.ClubId)
@@ -65,7 +65,8 @@ func (clubSrv) Join(clubId, userId uint) (err error) {
 	}
 
 	// 如果俱乐部不需要审核，用户就直接成为正式用户
-	if !club.Check {
+	// 如果要加入的用户正好是老板，直接成为正式用户
+	if !club.Check || club.Uid ==userId{
 		cu.Status = enum.ClubUserVip
 	}
 
@@ -101,7 +102,6 @@ type ClubUser struct {
 	Avatar    string            `json:"avatar"`
 	ClubId    uint              `json:"club_id"` // 俱乐部编号
 	Status    enum.ClubUserType `json:"status"`  // 0 等待审核，1 正式用户， 2 冻结用户
-	Payer     bool              `json:"payer"`   // 是否是代付 true 是代付
 	Admin     bool              `json:"admin"`   // 是否是管理员 true 是管理员
 	CreatedAt time.Time         `json:"created_at"`
 	DeletedAt *time.Time        `json:"deleted_at"`
@@ -110,7 +110,7 @@ type ClubUser struct {
 func (this *clubSrv) Users(clubId uint) (users []ClubUser) {
 
 	dao.Db.Table("club_users").
-		Select("users.id,users.nick, users.avatar,club_users.payer,club_users.admin,club_users.status,club_users.created_at,club_users.deleted_at").
+		Select("users.id,users.nick, users.avatar,club_users.admin,club_users.status,club_users.created_at,club_users.deleted_at").
 		Joins("join users on club_users.uid=users.id").Where("club_users.club_id = ?", clubId).Scan(&users)
 
 	//var cus []model.ClubUser
@@ -160,9 +160,18 @@ func (this *clubSrv) SetDisable(clubId, userId uint, ok bool) (err error) {
 	if err != nil {
 		return
 	}
+
 	if ok {
+		if cu.Status != enum.ClubUserVip {
+			err = errors.New("该用户还不是正式会员，无法冻结")
+			return
+		}
 		cu.Status = enum.ClubUserDisable
 	} else {
+		if cu.Status != enum.ClubUserDisable {
+			err = errors.New("该用用户没有被冻结，无须解除")
+			return
+		}
 		cu.Status = enum.ClubUserVip
 	}
 	dao.Db.Save(cu)
@@ -176,14 +185,39 @@ func (this *clubSrv) SetPay(clubId, userId uint, ok bool) (err error) {
 	if err != nil {
 		return
 	}
-	cu.Payer = ok
-	dao.Db.Save(cu)
+	var club model.Club
+	dao.Db.First(&club, cu.ClubId)
+	if club.ID == 0 {
+		err = errors.New("没找到该俱乐部")
+		return
+	}
+
+	// 如果是取消代付，先判断当前用户是否是代付者
+	if !ok && userId != club.PayerUid {
+		err = errors.New("该账号不是代付账号")
+		return
+	}
+
+	if ok {
+		// 设置代付
+		club.PayerUid = userId
+	} else {
+		// 取消代付
+		club.PayerUid = 0
+	}
+
+	dao.Db.Save(&club)
 	return
 }
 
 // 移除用户
-func (this *clubSrv) RemoveClubUser(clubId, userId uint) {
-	dao.Db.Unscoped().Delete(&model.ClubUser{ClubId: clubId, Uid: userId})
+func (this *clubSrv) RemoveClubUser(clubId, userId uint)(err error) {
+	_,err=this.getClubUser(clubId,userId)
+	if err!=nil{
+		return
+	}
+	dao.Db.Unscoped().Where("club_id=? and uid=?", clubId, userId).Delete(model.ClubUser{})
+	return
 }
 
 // 检查操作人员是不是俱乐部管理员
