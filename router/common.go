@@ -21,7 +21,7 @@ func codeFunc(c *gin.Context) {
 
 	reg := regexp.MustCompile(`^1[34578]\d{9}$`)
 	if !reg.MatchString(phone) {
-		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("手机号格式不正确"))
+		c.JSON(http.StatusBadRequest, utils.Msg("手机号格式不正确").Code(-1))
 		return
 	}
 
@@ -40,5 +40,5 @@ func codeFunc(c *gin.Context) {
 	utils.Lv.PutEx("code_"+phone, fmt.Sprint(code), time.Minute*5)
 	log.Println("手机验证码：", code)
 
-	c.JSON(http.StatusOK, utils.Msg().Msg("获取成功，验证码5分钟内有效"))
+	c.JSON(http.StatusOK, utils.Msg("获取成功，验证码5分钟内有效"))
 }

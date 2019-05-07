@@ -31,7 +31,7 @@ func (clubSrv) MyClubs(uid uint) (clubs []model.Club) {
 
 	// 我加入的
 	var cus []model.ClubUser
-	dao.Db.Where("uid = ? and status <> 0",uid).Find(&cus)
+	dao.Db.Where("uid = ? and status <> 0", uid).Find(&cus)
 	var ids []uint
 	for _, v := range cus {
 		ids = append(ids, v.ClubId)
@@ -66,7 +66,7 @@ func (clubSrv) Join(clubId, userId uint) (err error) {
 
 	// 如果俱乐部不需要审核，用户就直接成为正式用户
 	// 如果要加入的用户正好是老板，直接成为正式用户
-	if !club.Check || club.Uid ==userId{
+	if !club.Check || club.Uid == userId {
 		cu.Status = enum.ClubUserVip
 	}
 
@@ -74,7 +74,7 @@ func (clubSrv) Join(clubId, userId uint) (err error) {
 	return
 }
 
-func (clubSrv) UpdateNameAndNotice(clubId uint, check, close bool, name, notice string) (err error) {
+func (clubSrv) UpdateInfo(clubId uint, check, close bool, name, rollText, notice string) (err error) {
 	var club model.Club
 	dao.Db.First(&club, clubId)
 	if club.ID == 0 {
@@ -85,6 +85,7 @@ func (clubSrv) UpdateNameAndNotice(clubId uint, check, close bool, name, notice 
 	club.Close = close
 	club.Name = name
 	club.Notice = notice
+	club.RollText = rollText
 	dao.Db.Save(&club)
 	return
 }
@@ -144,7 +145,7 @@ func (this *clubSrv) SetAdmin(clubId, userId uint, ok bool) (err error) {
 	if err != nil {
 		return
 	}
-	if cu.Admin {
+	if ok && cu.Admin {
 		err = errors.New("该用户已经是管理员")
 		return
 	}
@@ -168,13 +169,9 @@ func (this *clubSrv) SetDisable(clubId, userId uint, ok bool) (err error) {
 		}
 		cu.Status = enum.ClubUserDisable
 	} else {
-		if cu.Status != enum.ClubUserDisable {
-			err = errors.New("该用用户没有被冻结，无须解除")
-			return
-		}
 		cu.Status = enum.ClubUserVip
 	}
-	dao.Db.Save(cu)
+	dao.Db.Save(&cu)
 	return
 }
 
@@ -211,11 +208,25 @@ func (this *clubSrv) SetPay(clubId, userId uint, ok bool) (err error) {
 }
 
 // 移除用户
-func (this *clubSrv) RemoveClubUser(clubId, userId uint)(err error) {
-	_,err=this.getClubUser(clubId,userId)
-	if err!=nil{
+func (this *clubSrv) RemoveClubUser(clubId, userId uint) (err error) {
+	_, err = this.getClubUser(clubId, userId)
+	if err != nil {
 		return
 	}
+
+	// 如果是代付，无法直接删除
+	var club model.Club
+	dao.Db.First(&club, clubId)
+	if club.ID == 0 {
+		err = errors.New("该俱乐部不存在")
+		return
+	}
+
+	if club.PayerUid != 0 && userId == club.PayerUid {
+		err = errors.New("该用户是代付，请先取消代付之后再删除")
+		return
+	}
+
 	dao.Db.Unscoped().Where("club_id=? and uid=?", clubId, userId).Delete(model.ClubUser{})
 	return
 }

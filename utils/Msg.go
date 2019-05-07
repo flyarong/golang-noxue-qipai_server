@@ -6,19 +6,15 @@ type msg struct {
 	Data      map[string]interface{} `json:"data"`
 }
 
-func Msg() *msg {
+func Msg(errStr string) *msg {
 	return &msg{
-		Data: map[string]interface{}{},
+		Message: errStr,
+		Data:    map[string]interface{}{},
 	}
 }
 
 func (this *msg) Code(code int) *msg {
 	this.ErrorCode = code
-	return this
-}
-
-func (this *msg) Msg(msg string) *msg {
-	this.Message = msg
 	return this
 }
 

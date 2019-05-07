@@ -30,7 +30,7 @@ func club() {
 	r.POST("/:cid/user", clubJoinFunc)
 	// /1/users会员列表  /1/users?verify 待审核会员列表
 	r.GET("/:cid/users", clubUsersFunc)
-	// 编辑会员状态：设为管理 取消管理  冻结 取消冻结 设为代付 取消代付 审核通过用户  移除用户
+	// 编辑会员状态：action 设为管理(admin) 取消管理(-admin)  冻结(disable) 取消冻结(-disable) 设为代付(pay) 取消代付(-pay) 审核通过用户(add)  移除用户(-add)
 	r.PUT("/:cid/user/:uid/*action", clubEditUserFunc) // 这里做了路由修改，对应的功能代码也需要修改，记录一下，修改好后，删除该注释
 }
 
@@ -48,48 +48,48 @@ func clubCreateFunc(c *gin.Context) {
 
 	var form ClubForm
 	if err := c.ShouldBind(&form); err != nil {
-		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg(err.Error()))
+		c.JSON(http.StatusBadRequest, utils.Msg(err.Error()).Code(-1))
 		return
 	}
 
 	// 限制只能 10  20 30 局
 	if form.Count != 10 && form.Count != 20 && form.Count != 30 {
-		c.JSON(http.StatusBadRequest, utils.Msg().Code(-2).Msg("局数[count]只能是10/20/30"))
+		c.JSON(http.StatusBadRequest, utils.Msg("局数[count]只能是10/20/30").Code(-2))
 		return
 	}
 
 	// 限制游戏开始方式
 	if form.StartType != 0 && form.StartType != 1 {
-		c.JSON(http.StatusBadRequest, utils.Msg().Code(-3).Msg("开始方式[start]只能是0或1"))
+		c.JSON(http.StatusBadRequest, utils.Msg("开始方式[start]只能是0或1").Code(-3))
 		return
 	}
 
 	// 限制支付模式
 	if form.Pay != 0 && form.Pay != 1 {
-		c.JSON(http.StatusBadRequest, utils.Msg().Code(-4).Msg("支付方式[pay]只能是0或1"))
+		c.JSON(http.StatusBadRequest, utils.Msg("支付方式[pay]只能是0或1").Code(-4))
 		return
 	}
 	// 限制王癞模式
 	if form.King != 0 && form.King != 1 && form.King != 2 {
-		c.JSON(http.StatusBadRequest, utils.Msg().Code(-5).Msg("王癞模式[king]只能是0/1/2"))
+		c.JSON(http.StatusBadRequest, utils.Msg("王癞模式[king]只能是0/1/2").Code(-5))
 		return
 	}
 
 	// 限制特殊牌型 全部选中状态为7位2进制都是1，最大为1111111==127
 	if form.Special > 127 || form.Special < 0 {
-		c.JSON(http.StatusBadRequest, utils.Msg().Code(-6).Msg("特殊牌型取值不合法"))
+		c.JSON(http.StatusBadRequest, utils.Msg("特殊牌型取值不合法").Code(-6))
 		return
 	}
 
 	// 限制翻倍规则
 	if form.Times < 0 || form.Times > 4 {
-		c.JSON(http.StatusBadRequest, utils.Msg().Code(-7).Msg("翻倍规则[times]取值不合法，只能在0-4之间"))
+		c.JSON(http.StatusBadRequest, utils.Msg("翻倍规则[times]取值不合法，只能在0-4之间").Code(-7))
 		return
 	}
 
 	// 底分取值不合法
 	if form.Score < 0 || form.Score > 5 {
-		c.JSON(http.StatusBadRequest, utils.Msg().Code(-7).Msg("底分类型取值只能在0-5之间"))
+		c.JSON(http.StatusBadRequest, utils.Msg("底分类型取值只能在0-5之间").Code(-7))
 		return
 	}
 
@@ -113,11 +113,11 @@ func clubCreateFunc(c *gin.Context) {
 	club.Uid = info.Uid
 
 	if err := srv.Club.CreateClub(club); err != nil {
-		c.JSON(http.StatusBadRequest, utils.Msg().Code(-7).Msg(err.Error()))
+		c.JSON(http.StatusBadRequest, utils.Msg(err.Error()).Code(-7))
 		return
 	}
 
-	c.JSON(http.StatusOK, utils.Msg().Msg("创建成功").AddData("id", club.ID))
+	c.JSON(http.StatusOK, utils.Msg("创建成功").AddData("id", club.ID))
 }
 
 func clubGetFunc(c *gin.Context) {
@@ -144,24 +144,24 @@ func clubGetFunc(c *gin.Context) {
 	info := c.MustGet("user").(*utils.UserInfo)
 	idStr, err := strconv.Atoi(c.Param("cid"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("参数格式不合法"))
+		c.JSON(http.StatusBadRequest, utils.Msg("参数格式不合法").Code(-1))
 		return
 	}
 
 	club, err := srv.Club.GetClub(info.Uid, uint(idStr))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg(err.Error()))
+		c.JSON(http.StatusBadRequest, utils.Msg(err.Error()).Code(-1))
 		return
 	}
 
 	var cv clubV
 
 	if !utils.Copy(club, &cv) {
-		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("内容转换出错"))
+		c.JSON(http.StatusBadRequest, utils.Msg("内容转换出错").Code(-1))
 		return
 	}
 
-	c.JSON(http.StatusOK, utils.Msg().AddData("club", cv))
+	c.JSON(http.StatusOK, utils.Msg("获取俱乐部成功").AddData("club", cv))
 }
 
 func clubsFunc(c *gin.Context) {
@@ -189,19 +189,19 @@ func clubsFunc(c *gin.Context) {
 			BossUid: u.ID,
 		})
 	}
-	c.JSON(http.StatusOK, utils.Msg().AddData("clubs", clubsV))
+	c.JSON(http.StatusOK, utils.Msg("获取俱乐部列表成功").AddData("clubs", clubsV))
 }
 
 func clubDeleteFunc(c *gin.Context) {
 	club := &model.Club{}
 	id, err := strconv.Atoi(c.Param("cid"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("俱乐部编号不正确"))
+		c.JSON(http.StatusBadRequest, utils.Msg("俱乐部编号不正确").Code(-1))
 		return
 	}
 	club.ID = uint(id)
 	dao.Db.Delete(club)
-	c.JSON(http.StatusOK, utils.Msg().Msg("解散成功"))
+	c.JSON(http.StatusOK, utils.Msg("解散成功"))
 }
 
 func clubEditFunc(c *gin.Context) {
@@ -209,41 +209,42 @@ func clubEditFunc(c *gin.Context) {
 		Check  bool   `form:"check" json:"check"`
 		Close  bool   `form:"close" json:"close"`
 		Name   string `form:"name" json:"name"`
+		RollText string `form:"roll_text" json:"roll_text"`
 		Notice string `form:"notice" json:"notice"`
 	}
 	cid, err := strconv.Atoi(c.Param("cid"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("俱乐部编号不正确"))
+		c.JSON(http.StatusBadRequest, utils.Msg("俱乐部编号不正确").Code(-1))
 		return
 	}
 
 	var form infoFrom
 	if err := c.ShouldBind(&form); err != nil {
-		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg(err.Error()))
+		c.JSON(http.StatusBadRequest, utils.Msg(err.Error()).Code(-1))
 		return
 	}
 
-	if err := srv.Club.UpdateNameAndNotice(uint(cid), form.Check, form.Close, form.Name, form.Notice); err != nil {
-		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg(err.Error()))
+	if err := srv.Club.UpdateInfo(uint(cid), form.Check, form.Close, form.Name, form.RollText, form.Notice); err != nil {
+		c.JSON(http.StatusBadRequest, utils.Msg(err.Error()).Code(-1))
 		return
 	}
-	c.JSON(http.StatusOK, utils.Msg().Msg("编辑成功"))
+	c.JSON(http.StatusOK, utils.Msg("编辑成功"))
 }
 
 func clubJoinFunc(c *gin.Context) {
 	info := c.MustGet("user").(*utils.UserInfo)
 	cid, err := strconv.Atoi(c.Param("cid"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("加入失败，俱乐部编号只能是数字"))
+		c.JSON(http.StatusBadRequest, utils.Msg("加入失败，俱乐部编号只能是数字").Code(-1))
 		return
 	}
 
 	err = srv.Club.Join(uint(cid), info.Uid)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg(err.Error()))
+		c.JSON(http.StatusBadRequest, utils.Msg(err.Error()).Code(-1))
 		return
 	}
-	c.JSON(http.StatusOK, utils.Msg().Msg("加入成功"))
+	c.JSON(http.StatusOK, utils.Msg("加入成功"))
 }
 
 func clubUsersFunc(c *gin.Context) {
@@ -251,18 +252,18 @@ func clubUsersFunc(c *gin.Context) {
 	info := c.MustGet("user").(*utils.UserInfo)
 	cid, err := strconv.Atoi(c.Param("cid"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("俱乐部编号只能是数字"))
+		c.JSON(http.StatusBadRequest, utils.Msg("俱乐部编号只能是数字").Code(-1))
 		return
 	}
 	// 只能看到自己加入的俱乐部的用户列表
 	if !srv.Club.IsClubUser(info.Uid, uint(cid)) {
-		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("你不属于该俱乐部，无法查看该俱乐部用户列表"))
+		c.JSON(http.StatusBadRequest, utils.Msg("你不属于该俱乐部，无法查看该俱乐部用户列表").Code(-1))
 		return
 	}
 
 	users := srv.Club.Users(uint(cid))
 
-	c.JSON(http.StatusOK, utils.Msg().Msg("获取俱乐部用户列表成功").AddData("users", users))
+	c.JSON(http.StatusOK, utils.Msg("获取俱乐部用户列表成功").AddData("users", users))
 }
 
 func clubEditUserFunc(c *gin.Context) {
@@ -271,32 +272,32 @@ func clubEditUserFunc(c *gin.Context) {
 
 	cid, err := strconv.Atoi(c.Param("cid"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("俱乐部编号只能是数字"))
+		c.JSON(http.StatusBadRequest, utils.Msg("俱乐部编号只能是数字").Code(-1))
 		return
 	}
 
 	uid, err := strconv.Atoi(c.Param("uid"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("俱乐部编号只能是数字"))
+		c.JSON(http.StatusBadRequest, utils.Msg("俱乐部编号只能是数字").Code(-1))
 		return
 	}
 
 	// 编辑会员状态：设为管理(admin) 取消管理(-admin)  冻结(disable) 取消冻结(-disable) 设为代付(pay) 取消代付(-pay) 审核通过用户(add)  移除用户(-add)
 	action := c.Param("action")
-	
+
 	log.Println("action:"+action[1:])
 
 	isAdmin := srv.Club.IsAdmin(info.Uid, uint(cid))
 	isBoss := srv.Club.IsBoss(info.Uid, uint(cid))
 	// 只有管理员或创建者可以操作
 	if !isAdmin && !isBoss {
-		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("您不是管理员或老板，无法操作！"))
+		c.JSON(http.StatusBadRequest, utils.Msg("您不是管理员或老板，无法操作！").Code(-1))
 		return
 	}
 
 	// 自己不能编辑自己
 	if info.Uid == uint(uid) {
-		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("您不能对自己进行操作！"))
+		c.JSON(http.StatusBadRequest, utils.Msg("您不能对自己进行操作！").Code(-1))
 		return
 	}
 
@@ -306,60 +307,60 @@ func clubEditUserFunc(c *gin.Context) {
 	case "admin":
 		// 只有老板可以设置管理员
 		if !isBoss {
-			c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("您不是老板，无法设置管理员！"))
+			c.JSON(http.StatusBadRequest, utils.Msg("您不是老板，无法设置管理员！").Code(-1))
 			return
 		}
 		err = srv.Club.SetAdmin(uint(cid), uint(uid), true)
-	case "-admin":
+	case "_admin":
 		// 只有老板可以取消管理员
 		if !isBoss {
-			c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("您不是老板，无法取消管理员！"))
+			c.JSON(http.StatusBadRequest, utils.Msg("您不是老板，无法取消管理员！").Code(-1))
 			return
 		}
 		err = srv.Club.SetAdmin(uint(cid), uint(uid), false)
 	case "disable":
 		// 管理员 不能冻结管理员或老板
 		if isAdmin && (srv.Club.IsBoss(uint(uid), uint(cid)) || srv.Club.IsAdmin(uint(uid), uint(cid))  ){
-			c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("管理员无法冻结其他管理员和老板"))
+			c.JSON(http.StatusBadRequest, utils.Msg("管理员无法冻结其他管理员和老板").Code(-1))
 			return
 		}
 		err = srv.Club.SetDisable(uint(cid), uint(uid), true)
-	case "-disable":
+	case "_disable":
 		// 管理员 不能接触冻结管理员或老板
 		if isAdmin && (srv.Club.IsBoss(uint(uid), uint(cid)) || srv.Club.IsAdmin(uint(uid), uint(cid))  ){
-			c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("管理员无法接触冻结管理员和老板"))
+			c.JSON(http.StatusBadRequest, utils.Msg("管理员无法接触冻结管理员和老板").Code(-1))
 			return
 		}
 		err = srv.Club.SetDisable(uint(cid), uint(uid), false)
 	case "pay":
 		if !isBoss {
-			c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("您不是老板，无法设置代付！"))
+			c.JSON(http.StatusBadRequest, utils.Msg("您不是老板，无法设置代付！").Code(-1))
 			return
 		}
 		err = srv.Club.SetPay(uint(cid), uint(uid), true)
-	case "-pay":
+	case "_pay":
 		if !isBoss {
-			c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("您不是老板，无法取消代付！"))
+			c.JSON(http.StatusBadRequest, utils.Msg("您不是老板，无法取消代付！").Code(-1))
 			return
 		}
 		err = srv.Club.SetPay(uint(cid), uint(uid), false)
 	case "add":
 		// 审核通过，就是设置为普通用户，跟取消冻结操作一样
 		err = srv.Club.SetDisable(uint(cid), uint(uid), false)
-	case "-add":
+	case "_add":
 		// 管理员 不能移除管理员或老板
 		if isAdmin && (srv.Club.IsBoss(uint(uid), uint(cid)) || srv.Club.IsAdmin(uint(uid), uint(cid))  ){
-			c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("管理员无法移除其他管理员和老板"))
+			c.JSON(http.StatusBadRequest, utils.Msg("管理员无法移除其他管理员和老板").Code(-1))
 			return
 		}
 		err = srv.Club.RemoveClubUser(uint(cid), uint(uid))
 	default:
-		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("不支持这个操作:"+action))
+		c.JSON(http.StatusBadRequest, utils.Msg("不支持这个操作:"+action).Code(-1))
 	}
 
 	if err!=nil {
-		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg(err.Error()))
+		c.JSON(http.StatusBadRequest, utils.Msg(err.Error()).Code(-1))
 		return
 	}
-	c.JSON(http.StatusOK, utils.Msg().Msg("操作成功"))
+	c.JSON(http.StatusOK, utils.Msg("操作成功"))
 }

@@ -37,16 +37,16 @@ func userLoginFunc(c *gin.Context) {
 
 	var login LoginForm
 	if err := c.ShouldBind(&login); err != nil {
-		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg(err.Error()))
+		c.JSON(http.StatusBadRequest, utils.Msg(err.Error()).Code(-1))
 		return
 	}
 
 	token, err := srv.User.Login(&model.Auth{UserType: login.UserType, Name: login.Name, Pass: login.Pass})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, utils.Msg().Code(-1).Msg(err.Error()))
+		c.JSON(http.StatusInternalServerError, utils.Msg(err.Error()).Code(-1))
 		return
 	}
-	c.JSON(http.StatusOK, utils.Msg().Msg("登录成功").AddData("token", token))
+	c.JSON(http.StatusOK, utils.Msg("登录成功").AddData("token", token))
 
 }
 
@@ -71,12 +71,12 @@ func userRegFunc(c *gin.Context) {
 
 	var reg RegForm
 	if err := c.ShouldBind(&reg); err != nil {
-		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg(err.Error()))
+		c.JSON(http.StatusBadRequest, utils.Msg(err.Error()).Code(-1))
 		return
 	}
 
 	if reg.UserType != enum.Mobile {
-		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("目前仅支持手机注册"))
+		c.JSON(http.StatusBadRequest, utils.Msg("目前仅支持手机注册").Code(-1))
 		return
 	}
 
@@ -84,7 +84,7 @@ func userRegFunc(c *gin.Context) {
 	code := utils.Lv.Get("code_" + reg.Name)
 	utils.Lv.Del("code_" + reg.Name)
 	if code != reg.Code {
-		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("手机验证码错误"))
+		c.JSON(http.StatusBadRequest, utils.Msg("手机验证码错误").Code(-1))
 		return
 	}
 
@@ -93,11 +93,11 @@ func userRegFunc(c *gin.Context) {
 	user.Avatar = fmt.Sprintf("/avatar/Avatar%d.png", rand.Intn(199))
 	err := srv.User.Register(&user)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, utils.Msg().Code(-1).Msg(err.Error()))
+		c.JSON(http.StatusInternalServerError, utils.Msg(err.Error()).Code(-1))
 		return
 	}
 
-	c.JSON(http.StatusOK, utils.Msg().Msg("注册成功"))
+	c.JSON(http.StatusOK, utils.Msg("注册成功"))
 }
 
 func userResetFunc(c *gin.Context) {
@@ -111,12 +111,12 @@ func userResetFunc(c *gin.Context) {
 
 	var reset ResetForm
 	if err := c.ShouldBind(&reset); err != nil {
-		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg(err.Error()))
+		c.JSON(http.StatusBadRequest, utils.Msg(err.Error()).Code(-1))
 		return
 	}
 
 	if reset.UserType != enum.Mobile {
-		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("目前仅支持手机注册"))
+		c.JSON(http.StatusBadRequest, utils.Msg("目前仅支持手机注册").Code(-1))
 		return
 	}
 
@@ -124,21 +124,21 @@ func userResetFunc(c *gin.Context) {
 	code := utils.Lv.Get("code_" + reset.Name)
 	utils.Lv.Del("code_" + reset.Name)
 	if code != reset.Code {
-		c.JSON(http.StatusBadRequest, utils.Msg().Code(-1).Msg("手机验证码错误"))
+		c.JSON(http.StatusBadRequest, utils.Msg("手机验证码错误").Code(-1))
 		return
 	}
 
 	var a model.Auth
 	dao.Db.Where(&model.Auth{UserType: reset.UserType, Name: reset.Name}).First(&a)
 	if a.ID == 0 {
-		c.JSON(http.StatusInternalServerError, utils.Msg().Code(-1).Msg("账号不存在"))
+		c.JSON(http.StatusInternalServerError, utils.Msg("账号不存在").Code(-1))
 		return
 	}
 
 	a.Pass = reset.Pass
 	dao.Db.Save(&a)
 
-	c.JSON(http.StatusOK, utils.Msg().Msg("密码修改成功"))
+	c.JSON(http.StatusOK, utils.Msg("密码修改成功"))
 }
 
 func userBindFunc(c *gin.Context) {
@@ -167,10 +167,10 @@ func userInfoFunc(c *gin.Context) {
 	info := c.MustGet("user").(*utils.UserInfo)
 	user, err := srv.User.GetInfo(info.Uid)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, utils.Msg().Code(-1).Msg(err.Error()))
+		c.JSON(http.StatusInternalServerError, utils.Msg(err.Error()).Code(-1))
 		return
 	}
 	var uv userV
 	utils.Copy(user,&uv)
-	c.JSON(http.StatusOK, utils.Msg().AddData("user", uv))
+	c.JSON(http.StatusOK, utils.Msg("获取用户信息成功").AddData("user", uv))
 }
