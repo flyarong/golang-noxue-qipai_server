@@ -63,3 +63,13 @@ type Game struct {
 	Special int    // 特殊牌型加倍
 	Score   int    // 输赢积分，通过底分*庄家倍数*特殊牌型加倍 计算
 }
+
+// 记录房间中的用户
+type Player struct {
+	gorm.Model
+	Uid     uint   // 用户编号
+	Nick    string // 昵称
+	DeskId  int    // 座位号
+	RoomId  uint   // 房间编号
+	IsReady bool   // 是否已准备
+}

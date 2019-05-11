@@ -12,6 +12,7 @@ import (
 	"qipai/model"
 	"qipai/srv"
 	"qipai/utils"
+	"strconv"
 	"time"
 )
 
@@ -25,6 +26,7 @@ func user() {
 	ar.Use(middleware.JWTAuth())
 	ar.POST("/bind", userBindFunc)
 	ar.GET("", userInfoFunc)
+	ar.GET("/:id", userInfoFunc)
 
 }
 
@@ -164,13 +166,26 @@ func userInfoFunc(c *gin.Context) {
 		Card      int       `json:"card"`
 		CreatedAt time.Time `json:"created_at"`
 	}
+
 	info := c.MustGet("user").(*utils.UserInfo)
-	user, err := srv.User.GetInfo(info.Uid)
+	uid := uint(info.Uid)
+	uidStr := c.Param("id")
+	if uidStr != "" {
+		id, err := strconv.Atoi(uidStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, utils.Msg(err.Error()).Code(-1))
+			return
+		}
+		uid = uint(id)
+	}
+
+	user, err := srv.User.GetInfo(uid)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, utils.Msg(err.Error()).Code(-1))
 		return
 	}
 	var uv userV
-	utils.Copy(user,&uv)
+	utils.Copy(user, &uv)
+
 	c.JSON(http.StatusOK, utils.Msg("获取用户信息成功").AddData("user", uv))
 }

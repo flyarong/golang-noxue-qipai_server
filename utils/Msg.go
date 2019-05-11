@@ -6,9 +6,9 @@ type msg struct {
 	Data      map[string]interface{} `json:"data"`
 }
 
-func Msg(errStr string) *msg {
+func Msg(msgStr string) *msg {
 	return &msg{
-		Message: errStr,
+		Message: msgStr,
 		Data:    map[string]interface{}{},
 	}
 }

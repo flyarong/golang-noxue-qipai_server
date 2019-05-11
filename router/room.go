@@ -8,6 +8,7 @@ import (
 	"qipai/model"
 	"qipai/srv"
 	"qipai/utils"
+	"strconv"
 )
 
 func room() {
@@ -18,11 +19,19 @@ func room() {
 	r.POST("", roomCreateFunc)
 	// 房间列表
 	r.GET("", roomsFunc)
-	// 解散房间
+	// 房间信息
+	r.GET("/:rid", roomInfoFunc)
 	// 进入房间
-	// 选座位
+	r.POST("/:rid/players", roomsJoinFunc)
+	// 当前房间所有玩家信息
+	r.GET("/:rid/players", roomsPlayersFunc)
+
 	// 坐下
+	r.PUT("/:rid/players/sit", roomsSitFunc)
+
 	// 离开房间
+
+	// 解散房间
 }
 
 func roomCreateFunc(c *gin.Context) {
@@ -90,15 +99,15 @@ func roomCreateFunc(c *gin.Context) {
 	room.Uid = info.Uid
 
 	if ok := utils.Copy(form, &room); !ok {
-		c.JSON(http.StatusBadRequest, utils.Msg("房间信息赋值失败，请联系管理员").Code(-8))
+		c.JSON(http.StatusInternalServerError, utils.Msg("房间信息赋值失败，请联系管理员").Code(-8))
 		return
 	}
 
-	if err := srv.Room.Create(&room); err != nil {
+	if err := srv.Room.Create(&room, true); err != nil {
 		c.JSON(http.StatusBadRequest, utils.Msg(err.Error()).Code(-9))
 		return
 	}
-	c.JSON(http.StatusOK, utils.Msg("创建成功"))
+	c.JSON(http.StatusOK, utils.Msg("创建成功").AddData("id", room.ID))
 }
 
 func roomsFunc(c *gin.Context) {
@@ -125,4 +134,97 @@ func roomsFunc(c *gin.Context) {
 		roomsV = append(roomsV, r)
 	}
 	c.JSON(http.StatusOK, utils.Msg("获取房间列表成功").AddData("rooms", roomsV))
+}
+
+func roomsJoinFunc(c *gin.Context) {
+	info := c.MustGet("user").(*utils.UserInfo)
+
+	rid, err := strconv.Atoi(c.Param("rid"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, utils.Msg("房间编号必须是数字").Code(-1))
+		return
+	}
+	err = srv.Room.Join(uint(rid), info.Uid, info.Nick)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, utils.Msg(err.Error()).Code(-1))
+		return
+	}
+	c.JSON(http.StatusOK, utils.Msg("加入成功"))
+}
+
+func roomsPlayersFunc(c *gin.Context) {
+
+	type playerV struct {
+		Uid     uint   `json:"uid"`      // 用户编号
+		Nick    string `json:"nick"`     // 昵称
+		DeskId  int    `json:"desk_id"`  // 座位号
+		RoomId  uint   `json:"room_id"`  // 房间编号
+		IsReady bool   `json:"is_ready"` // 是否已准备
+	}
+
+	rid, err := strconv.Atoi(c.Param("rid"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, utils.Msg("房间编号必须是数字").Code(-1))
+		return
+	}
+
+	players := srv.Room.Players(uint(rid))
+	var pvs []playerV
+	for _, v := range players {
+		var pv playerV
+		if !utils.Copy(v, &pv) {
+			c.JSON(http.StatusInternalServerError, utils.Msg("玩家数组赋值出错，请联系管理员").Code(-1))
+			return
+		}
+		pvs = append(pvs, pv)
+	}
+	c.JSON(http.StatusOK, utils.Msg("获取玩家列表成功").AddData("players", pvs))
+}
+
+func roomsSitFunc(c *gin.Context) {
+	rid, err := strconv.Atoi(c.Param("rid"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, utils.Msg("房间编号必须是数字").Code(-1))
+		return
+	}
+	info := c.MustGet("user").(*utils.UserInfo)
+
+	var deskId int
+	deskId, err = srv.Room.SitDown(uint(rid), info.Uid)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, utils.Msg(err.Error()).Code(-1))
+		return
+	}
+	c.JSON(http.StatusOK, utils.Msg("坐下成功").AddData("desk_id", deskId))
+}
+
+func roomInfoFunc(c *gin.Context) {
+	type roomV struct {
+		ID      uint           `json:"id"`
+		Score   enum.ScoreType `json:"score"`   // 底分类型
+		Pay     enum.PayType   `json:"pay"`     // 支付方式
+		Current int            `json:"current"` // 当前第几局
+		Count   int            `json:"count"`   // 总共可以玩几局
+		Uid     uint           `json:"uid"`     // 房主用户编号
+		Players int            `json:"players"` // 玩家个数
+	}
+
+	rid, err := strconv.Atoi(c.Param("rid"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, utils.Msg("房间编号必须是数字").Code(-1))
+		return
+	}
+
+	room, err := srv.Room.Get(uint(rid))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, utils.Msg(err.Error()).Code(-1))
+		return
+	}
+	var rv roomV
+	if !utils.Copy(room, &rv) {
+		c.JSON(http.StatusInternalServerError, utils.Msg("复制房间信息出错，请联系管理员").Code(-1))
+		return
+	}
+
+	c.JSON(http.StatusOK, utils.Msg("获取房间信息成功").AddData("room", rv))
 }
