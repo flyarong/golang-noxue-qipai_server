@@ -21,7 +21,7 @@ type StartType int
 
 const (
 	StartBoss  StartType = 0 // 房主开始
-	StartReady StartType = 1 // 准备好开始
+	StartFirst StartType = 1 // 首位开始
 )
 
 // 付款方式
@@ -38,8 +38,7 @@ type GameStatus int
 const (
 	GameReady   GameStatus = 0
 	GamePlaying GameStatus = 1
-	GameRest    GameStatus = 2
-	GameOver    GameStatus = 3
+	GameOver    GameStatus = 2
 )
 
 // 俱乐部用户类型

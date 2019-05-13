@@ -3,6 +3,7 @@ package model
 import (
 	"github.com/jinzhu/gorm"
 	"qipai/enum"
+	"time"
 )
 
 type Club struct {
@@ -31,7 +32,7 @@ type ClubRoomBase struct {
 
 type Room struct {
 	Current int             // 当前第几局
-	Status  enum.GameStatus // 0 未开始，1 游戏中， 2 中场休息， 3 已结束
+	Status  enum.GameStatus // 0 未开始，1 游戏中， 2 已结束
 	ClubRoomBase
 }
 
@@ -67,9 +68,11 @@ type Game struct {
 // 记录房间中的用户
 type Player struct {
 	gorm.Model
-	Uid     uint   // 用户编号
-	Nick    string // 昵称
-	DeskId  int    // 座位号
-	RoomId  uint   // 房间编号
-	IsReady bool   // 是否已准备
+	Uid      uint                     // 用户编号
+	Nick     string                   // 昵称
+	DeskId   int                      // 座位号
+	RoomId   uint                     // 房间编号
+	Cards    string                   // 用户所拥有的牌
+	IsReady  bool                     // 是否已准备
+	JoinedAt *time.Time `sql:"index"` // 加入时间
 }

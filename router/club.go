@@ -59,8 +59,8 @@ func clubCreateFunc(c *gin.Context) {
 	}
 
 	// 限制游戏开始方式
-	if form.StartType != 0 && form.StartType != 1 {
-		c.JSON(http.StatusBadRequest, utils.Msg("开始方式[start]只能是0或1").Code(-3))
+	if form.StartType != 1 {
+		c.JSON(http.StatusBadRequest, utils.Msg("开始方式[start]只能是1").Code(-3))
 		return
 	}
 
@@ -69,6 +69,7 @@ func clubCreateFunc(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, utils.Msg("支付方式[pay]只能是0或1").Code(-4))
 		return
 	}
+
 	// 限制王癞模式
 	if form.King != 0 && form.King != 1 && form.King != 2 {
 		c.JSON(http.StatusBadRequest, utils.Msg("王癞模式[king]只能是0/1/2").Code(-5))
@@ -131,7 +132,7 @@ func clubGetFunc(c *gin.Context) {
 		Score     enum.ScoreType `json:"score"`      // 底分 以竖线分割的底分方式
 		Players   int            `json:"players"`    // 玩家个数
 		Count     int            `json:"count"`      // 局数
-		StartType enum.StartType `json:"start_type"` // 游戏开始方式
+		StartType enum.StartType `json:"start_type"` // 游戏开始方式 只支持1 首位开始
 		Pay       enum.PayType   `json:"pay"`        // 付款方式 0 俱乐部老板付 1 AA
 		Times     enum.TimesType `json:"times"`      // 翻倍规则，预先固定的几个选择，比如：牛牛x3  牛九x2
 		Special   int            `json:"special"`    // 特殊牌型,二进制位表示特殊牌型翻倍规则，一共7类特殊牌型，用最低的7位二进制表示，1表示选中0表示没选中。

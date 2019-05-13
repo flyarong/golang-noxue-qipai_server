@@ -28,8 +28,9 @@ func (this *lv) Get(key string) string {
 	return string(data)
 }
 
-func (this *lv) Put(key, value string) {
-	this.db.Put([]byte(key), []byte(value), nil)
+func (this *lv) Put(key, value string)(err error) {
+	err = this.db.Put([]byte(key), []byte(value), nil)
+	return
 }
 
 func (this *lv) PutEx(key, value string, expired time.Duration) {
@@ -40,10 +41,12 @@ func (this *lv) PutEx(key, value string, expired time.Duration) {
 	}()
 }
 
-func (this *lv) Del(key string) {
-	this.db.Delete([]byte(key), nil)
+func (this *lv) Del(key string)(err error) {
+	err = this.db.Delete([]byte(key), nil)
+	return
 }
 
-func (this *lv) Close() {
-	this.db.Close()
+func (this *lv) Close()(err error) {
+	err = this.db.Close()
+	return
 }

@@ -28,10 +28,14 @@ func room() {
 
 	// 坐下
 	r.PUT("/:rid/players/sit", roomsSitFunc)
-
 	// 离开房间
+	r.PUT("/:rid/players/exit", roomsExitFunc)
+
+	// 开始游戏
+	r.PUT("/:rid/start", roomsStartFunc)
 
 	// 解散房间
+	r.DELETE("/:rid", roomsDeleteFunc)
 }
 
 func roomCreateFunc(c *gin.Context) {
@@ -39,7 +43,7 @@ func roomCreateFunc(c *gin.Context) {
 		Score     enum.ScoreType `form:"score" json:"score"`                    // 底分方式
 		Players   int            `form:"players" json:"players"`                // 玩家个数
 		Count     int            `form:"count" json:"count" binding:"required"` // 局数
-		StartType enum.StartType `form:"start" json:"start"`                    // 0 第一个入场的开始  1 全准备好开始
+		StartType enum.StartType `form:"start" json:"start"`                    // 0 房主开始 1 首位开始
 		Pay       enum.PayType   `form:"pay" json:"pay"`                        // 0 房主  1 AA
 		King      enum.KingType  `form:"king" json:"king"`                      // 王癞 0 无王癞  1 经典王癞 2 疯狂王癞
 		Special   int            `form:"special" json:"special"`                // 特殊牌型,二进制位表示特殊牌型翻倍规则，一共7类特殊牌型，用最低的7位二进制表示，1表示选中0表示没选中。
@@ -158,7 +162,6 @@ func roomsPlayersFunc(c *gin.Context) {
 		Uid     uint   `json:"uid"`      // 用户编号
 		Nick    string `json:"nick"`     // 昵称
 		DeskId  int    `json:"desk_id"`  // 座位号
-		RoomId  uint   `json:"room_id"`  // 房间编号
 		IsReady bool   `json:"is_ready"` // 是否已准备
 	}
 
@@ -227,4 +230,44 @@ func roomInfoFunc(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, utils.Msg("获取房间信息成功").AddData("room", rv))
+}
+
+func roomsStartFunc(c *gin.Context) {
+	rid, err := strconv.Atoi(c.Param("rid"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, utils.Msg("房间编号必须是数字").Code(-1))
+		return
+	}
+	info := c.MustGet("user").(*utils.UserInfo)
+	err = srv.Room.Start(uint(rid), info.Uid)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, utils.Msg(err.Error()).Code(-1))
+		return
+	}
+	c.JSON(http.StatusOK, utils.Msg("游戏已开始"))
+}
+
+func roomsExitFunc(c *gin.Context) {
+	rid, err := strconv.Atoi(c.Param("rid"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, utils.Msg("房间编号必须是数字").Code(-1))
+		return
+	}
+	info := c.MustGet("user").(*utils.UserInfo)
+
+	err = srv.Room.Exit(uint(rid), info.Uid)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, utils.Msg(err.Error()).Code(-1))
+		return
+	}
+	c.JSON(http.StatusOK, utils.Msg("已离开房间"))
+}
+
+func roomsDeleteFunc(c *gin.Context) {
+	//rid, err := strconv.Atoi(c.Param("rid"))
+	//if err != nil {
+	//	c.JSON(http.StatusBadRequest, utils.Msg("房间编号必须是数字").Code(-1))
+	//	return
+	//}
+	//info := c.MustGet("user").(*utils.UserInfo)
 }
