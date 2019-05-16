@@ -2,9 +2,11 @@ package srv
 
 import (
 	"errors"
+	"log"
 	"math/rand"
 	"qipai/dao"
 	"qipai/enum"
+	"qipai/event"
 	"qipai/model"
 	"time"
 )
@@ -14,19 +16,36 @@ var Room roomSrv
 type roomSrv struct {
 }
 
-func (this *roomSrv) Create(room *model.Room, delete bool) (err error) {
+func deleteRoom() {
+	type result struct {
+		ID  int
+		Uid int
+	}
+
+	go func() {
+		for {
+			time.Sleep(time.Second * 5)
+			var res []result
+			dao.Db.Raw("select id,uid  from rooms  where deleted_at is null and club_id=0 and now()-created_at>10").Scan(&res)
+			if len(res) > 0 {
+				var ids []int
+				for _, v := range res {
+					ids = append(ids, v.ID)
+					event.Send(uint(v.Uid), "RoomDelete", v.ID)
+					log.Println(v.ID,"  ",v.Uid)
+				}
+				dao.Db.Unscoped().Where("id in (?)", ids).Delete(model.Room{})
+				dao.Db.Where("room_id in (?)", ids).Delete(&model.Player{})
+			}
+		}
+	}()
+}
+
+func (this *roomSrv) Create(room *model.Room) (err error) {
 	dao.Db.Save(room)
 	if room.ID == 0 {
 		err = errors.New("房间添加失败，请联系管理员")
 		return
-	}
-
-	// 如果需要删除，十分钟后，未开始游戏，房间自动删除
-	if delete {
-		go func() {
-			time.Sleep(time.Second * 10)
-			this.Delete(room.ID)
-		}()
 	}
 	return
 }
@@ -43,6 +62,17 @@ func (roomSrv) Get(roomId uint) (room model.Room, err error) {
 func (roomSrv) Delete(roomId uint) (err error) {
 	// 删除房间信息
 	dao.Db.Where("id=? and status=0", roomId).Delete(&model.Room{})
+
+	// 获取玩家
+	var ps []model.Player
+	dao.Db.Where("room_id=?", roomId).Find(&ps)
+	for _, p := range ps {
+		// 只通知在线的玩家
+		if model.Online.Get(p.Uid) {
+			event.Send(p.Uid, "RoomDelete", p.RoomId)
+		}
+	}
+
 	// 删除玩家
 	dao.Db.Where("room_id=?", roomId).Delete(&model.Player{})
 	return
@@ -166,18 +196,29 @@ func (this *roomSrv) Join(rid, uid uint, nick string) (err error) {
 退出房间
  */
 func (this *roomSrv) Exit(rid, uid uint) (err error) {
+	// 通知自己的客户端退出
+	event.Send(uid, "RoomExit", uid)
+
 	var player model.Player
 	player, err = this.Player(rid, uid)
 	if err != nil {
 		// 房间被解散，也可以成功退出
 		if err.Error() == "用户未进入当前房间，如果已进入，可以尝试退出房间重新进入" {
-			err=nil
+			err = nil
 		}
 		return
 	}
+
 	player.JoinedAt = nil // 加入时间设置为空
 	player.DeskId = 0     // 释放座位号
 	dao.Db.Save(&player)
+
+	// 通知其他客户端玩家，我退出了
+	ps := this.PlayersSitDown(rid)
+	for _, p := range ps {
+		event.Send(p.Uid, "RoomExit", uid)
+		log.Println(p.Uid, "\t退出房间")
+	}
 	return
 }
 
@@ -217,5 +258,11 @@ func (this *roomSrv) Start(roomId, uid uint) (err error) {
 
 func (this *roomSrv) Players(roomId uint) (players []model.Player) {
 	dao.Db.Where(&model.Player{RoomId: roomId}).Find(&players)
+	return
+}
+
+// 房间中所有坐下的玩家
+func (this *roomSrv) PlayersSitDown(roomId uint) (players []model.Player) {
+	dao.Db.Where(&model.Player{RoomId: roomId}).Where("desk_id>0").Find(&players)
 	return
 }

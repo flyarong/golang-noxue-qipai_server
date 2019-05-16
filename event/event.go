@@ -6,6 +6,7 @@ import (
 	"log"
 	"qipai/utils"
 	"strconv"
+	"sync"
 )
 
 type Event struct {
@@ -15,7 +16,18 @@ type Event struct {
 
 var evtStr string = "Event"
 
+var evtLock sync.Mutex
+
+var events map[string]Event
+
+func init() {
+	events = make(map[string]Event)
+}
+
 func Send(uid uint, eventName string, args ...interface{}) (err error) {
+	evtLock.Lock()
+	defer evtLock.Unlock()
+
 	key := evtStr + ":" + strconv.Itoa(int(uid))
 
 	var evts []Event
@@ -52,6 +64,9 @@ func Send(uid uint, eventName string, args ...interface{}) (err error) {
 }
 
 func Get(uid uint) (evts []Event, err error) {
+	evtLock.Lock()
+	defer evtLock.Unlock()
+
 	key := evtStr + ":" + strconv.Itoa(int(uid))
 
 	v := utils.Lv.Get(key)

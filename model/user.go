@@ -6,6 +6,8 @@ import (
 	"qipai/utils"
 )
 
+
+
 type Auth struct {
 	gorm.Model
 	UserType enum.UserType `gorm:"type:int;not null"`

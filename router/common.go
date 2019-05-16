@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"qipai/event"
 	"qipai/middleware"
+	"qipai/model"
 	"qipai/utils"
 	"regexp"
 	"time"
@@ -58,9 +59,11 @@ func codeFunc(c *gin.Context) {
 func eventsFunc(c *gin.Context) {
 	info := c.MustGet("user").(*utils.UserInfo)
 
+	// 更新用户在线状态
+	model.Online.SetOnline(info.Uid)
+
 	var evts []event.Event
 	var err error
-
 	for i := 0; i < 30; i++ {
 		evts, err = event.Get(info.Uid)
 		if err != nil {
@@ -70,15 +73,15 @@ func eventsFunc(c *gin.Context) {
 		if len(evts) > 0 {
 			break
 		}
-		time.Sleep(time.Second)
+		time.Sleep(time.Millisecond * 500)
 	}
 	c.JSON(http.StatusOK, utils.Msg("获取事件成功").AddData("events", evts))
 }
 
 func sendEventFunc(c *gin.Context) {
 	type Form struct {
-		Uid   uint     `form:"uid" json:"uid" binding:"required"`
-		Event string   `form:"event" json:"event" binding:"required"`
+		Uid   uint   `form:"uid" json:"uid" binding:"required"`
+		Event string `form:"event" json:"event" binding:"required"`
 		//Args  []interface{} `form:"args" json:"args"`
 	}
 	var form Form
@@ -87,7 +90,7 @@ func sendEventFunc(c *gin.Context) {
 		return
 	}
 
-	err := event.Send(form.Uid, form.Event, 111,"admin")
+	err := event.Send(form.Uid, form.Event, 111, "admin")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, utils.Msg(err.Error()))
 		return

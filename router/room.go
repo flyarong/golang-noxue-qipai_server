@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"qipai/enum"
+	"qipai/event"
 	"qipai/middleware"
 	"qipai/model"
 	"qipai/srv"
@@ -107,10 +108,12 @@ func roomCreateFunc(c *gin.Context) {
 		return
 	}
 
-	if err := srv.Room.Create(&room, true); err != nil {
+	if err := srv.Room.Create(&room); err != nil {
 		c.JSON(http.StatusBadRequest, utils.Msg(err.Error()).Code(-9))
 		return
 	}
+
+	event.Send(info.Uid,"RoomList")
 	c.JSON(http.StatusOK, utils.Msg("创建成功").AddData("id", room.ID))
 }
 
@@ -254,7 +257,7 @@ func roomsExitFunc(c *gin.Context) {
 		return
 	}
 	info := c.MustGet("user").(*utils.UserInfo)
-
+	event.Send(info.Uid, "RoomExit", info.Uid)
 	err = srv.Room.Exit(uint(rid), info.Uid)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, utils.Msg(err.Error()).Code(-1))
