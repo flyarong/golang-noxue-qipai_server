@@ -1,7 +1,6 @@
 package dao
 
 import (
-	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jinzhu/gorm"
 	"log"
@@ -11,7 +10,6 @@ import (
 var Db *gorm.DB
 
 func init() {
-	fmt.Println("config.Config.Db.Url", config.Config.Db.Url)
 	var err error
 	Db, err = gorm.Open("mysql", config.Config.Db.Url)
 	if err != nil {
@@ -19,5 +17,5 @@ func init() {
 	}
 
 	Db = Db.Set("gorm:table_options", "ENGINE=InnoDB  DEFAULT CHARSET=utf8mb4;")
-	Db.LogMode(true)
+	//Db.LogMode(true)
 }

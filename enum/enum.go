@@ -70,4 +70,5 @@ const (
 	ScoreType3 ScoreType = 2
 	ScoreType4 ScoreType = 3
 	ScoreType5 ScoreType = 4
+	ScoreType6 ScoreType = 5
 )

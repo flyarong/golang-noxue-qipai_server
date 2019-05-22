@@ -4,12 +4,13 @@ import (
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"qipai/enum"
-	"qipai/event"
 	"qipai/middleware"
 	"qipai/model"
 	"qipai/srv"
 	"qipai/utils"
 	"strconv"
+	"strings"
+	"time"
 )
 
 func room() {
@@ -26,7 +27,10 @@ func room() {
 	r.POST("/:rid/players", roomsJoinFunc)
 	// 当前房间所有玩家信息
 	r.GET("/:rid/players", roomsPlayersFunc)
-
+	// 获取单个玩家的信息
+	r.GET("/:rid/player", roomsPlayerFunc)
+	// 获取单个玩家的信息
+	r.GET("/:rid/player/:uid", roomsPlayerFunc)
 	// 坐下
 	r.PUT("/:rid/players/sit", roomsSitFunc)
 	// 离开房间
@@ -34,6 +38,14 @@ func room() {
 
 	// 开始游戏
 	r.PUT("/:rid/start", roomsStartFunc)
+
+	// 获取当前玩家的纸牌
+	r.GET("/:rid/cards", roomsCardsFunc)
+	// 获取指定用户的纸牌
+	r.GET("/:rid/cards/:uid", roomsCardsFunc)
+
+	// 下注
+	r.PUT("/:rid/score/:score", roomsSetScore)
 
 	// 解散房间
 	r.DELETE("/:rid", roomsDeleteFunc)
@@ -113,7 +125,6 @@ func roomCreateFunc(c *gin.Context) {
 		return
 	}
 
-	event.Send(info.Uid,"RoomList")
 	c.JSON(http.StatusOK, utils.Msg("创建成功").AddData("id", room.ID))
 }
 
@@ -174,7 +185,7 @@ func roomsPlayersFunc(c *gin.Context) {
 		return
 	}
 
-	players := srv.Room.Players(uint(rid))
+	players := srv.Room.PlayersSitDown(uint(rid))
 	var pvs []playerV
 	for _, v := range players {
 		var pv playerV
@@ -187,6 +198,46 @@ func roomsPlayersFunc(c *gin.Context) {
 	c.JSON(http.StatusOK, utils.Msg("获取玩家列表成功").AddData("players", pvs))
 }
 
+func roomsPlayerFunc(c *gin.Context) {
+
+	type playerV struct {
+		Uid      uint       `json:"uid"`       // 用户编号
+		Nick     string     `json:"nick"`      // 昵称
+		DeskId   int        `json:"desk_id"`   // 座位号
+		RoomId   uint       `json:"room_id"`   // 房间编号
+		Cards    string     `json:"cards"`     // 用户所拥有的牌
+		JoinedAt *time.Time `json:"joined_at"` // 加入时间
+	}
+
+	rid, err := strconv.Atoi(c.Param("rid"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, utils.Msg("房间编号必须是数字").Code(-1))
+		return
+	}
+	info := c.MustGet("user").(*utils.UserInfo)
+	uid := int(info.Uid)
+	uidStr := c.Param("uid")
+	if uidStr != "" {
+		uid, err = strconv.Atoi(uidStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, utils.Msg("房间编号必须是数字").Code(-1))
+			return
+		}
+	}
+
+	p, err := srv.Room.Player(uint(rid), uint(uid))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, utils.Msg(err.Error()).Code(-1))
+		return
+	}
+	var pv playerV
+	if !utils.Copy(p, &pv) {
+		c.JSON(http.StatusInternalServerError, utils.Msg("玩家信息拷贝出错").Code(-1))
+		return
+	}
+	c.JSON(http.StatusOK, utils.Msg("获取玩家信息成功").AddData("player", pv))
+}
+
 func roomsSitFunc(c *gin.Context) {
 	rid, err := strconv.Atoi(c.Param("rid"))
 	if err != nil {
@@ -195,10 +246,9 @@ func roomsSitFunc(c *gin.Context) {
 	}
 	info := c.MustGet("user").(*utils.UserInfo)
 
-	var deskId int
-	deskId, err = srv.Room.SitDown(uint(rid), info.Uid)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, utils.Msg(err.Error()).Code(-1))
+	roomId, deskId, e := srv.Room.SitDown(uint(rid), info.Uid)
+	if e != nil {
+		c.JSON(http.StatusBadRequest, utils.Msg(e.Error()).Code(-1).AddData("room_id", roomId))
 		return
 	}
 	c.JSON(http.StatusOK, utils.Msg("坐下成功").AddData("desk_id", deskId))
@@ -257,13 +307,81 @@ func roomsExitFunc(c *gin.Context) {
 		return
 	}
 	info := c.MustGet("user").(*utils.UserInfo)
-	event.Send(info.Uid, "RoomExit", info.Uid)
 	err = srv.Room.Exit(uint(rid), info.Uid)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, utils.Msg(err.Error()).Code(-1))
 		return
 	}
 	c.JSON(http.StatusOK, utils.Msg("已离开房间"))
+}
+
+func roomsCardsFunc(c *gin.Context) {
+	rid, err := strconv.Atoi(c.Param("rid"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, utils.Msg("房间编号必须是数字").Code(-1))
+		return
+	}
+	info := c.MustGet("user").(*utils.UserInfo)
+	uid := info.Uid
+
+	uidStr := c.Param("uid")
+	if len(uidStr) > 0 {
+		// 只有下注选定了庄家，才可以看别人的牌
+		hasBanker := false
+		for _, p := range srv.Room.PlayersSitDown(uint(rid)) {
+			if p.Banker {
+				hasBanker = true
+				break
+			}
+		}
+		// 没有庄家，提示错误
+		if !hasBanker {
+			c.JSON(http.StatusBadRequest, utils.Msg("选出庄家才可以查看其他玩家的牌").Code(-1))
+			return
+		}
+
+		n, e := strconv.Atoi(uidStr)
+		if e != nil {
+			c.JSON(http.StatusBadRequest, utils.Msg("用户编号uid必须是数字").Code(-1))
+			return
+		}
+		uid = uint(n)
+	}
+
+	player, err := srv.Room.Player(uint(rid), uid)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, utils.Msg(err.Error()).Code(-1))
+		return
+	}
+
+	cards:=player.Cards
+	if(player.Score==0){
+		cs := strings.Split(cards,"|")
+		cs = cs[:4]
+		cards = strings.Join(cs,"|")
+	}
+
+	c.JSON(http.StatusOK, utils.Msg("获取纸牌成功").AddData("cards", cards))
+}
+
+func roomsSetScore(c *gin.Context){
+	rid, err := strconv.Atoi(c.Param("rid"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, utils.Msg("房间编号必须是数字").Code(-1))
+		return
+	}
+	score, err := strconv.Atoi(c.Param("score"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, utils.Msg("下注积分必须是数字").Code(-1))
+		return
+	}
+	info := c.MustGet("user").(*utils.UserInfo)
+
+	err = srv.Room.SetScore(uint(rid),info.Uid,score)
+	if err!=nil {
+		c.JSON(http.StatusBadRequest, utils.Msg(err.Error()).Code(-1))
+		return
+	}
 }
 
 func roomsDeleteFunc(c *gin.Context) {
@@ -274,3 +392,5 @@ func roomsDeleteFunc(c *gin.Context) {
 	//}
 	//info := c.MustGet("user").(*utils.UserInfo)
 }
+
+

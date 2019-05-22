@@ -2,6 +2,7 @@ package srv
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"math/rand"
 	"qipai/dao"
@@ -24,15 +25,14 @@ func deleteRoom() {
 
 	go func() {
 		for {
-			time.Sleep(time.Second * 5)
+			time.Sleep(time.Second * 10)
 			var res []result
-			dao.Db.Raw("select id,uid  from rooms  where deleted_at is null and club_id=0 and now()-created_at>10").Scan(&res)
+			dao.Db.Raw("select id,uid  from rooms  where deleted_at is null and club_id<>1 and status=0 and now()-created_at>1000").Scan(&res)
 			if len(res) > 0 {
 				var ids []int
 				for _, v := range res {
 					ids = append(ids, v.ID)
-					event.Send(uint(v.Uid), "RoomDelete", v.ID)
-					log.Println(v.ID,"  ",v.Uid)
+					event.Send(uint(v.Uid), event.RoomDelete, v.ID)
 				}
 				dao.Db.Unscoped().Where("id in (?)", ids).Delete(model.Room{})
 				dao.Db.Where("room_id in (?)", ids).Delete(&model.Player{})
@@ -47,6 +47,7 @@ func (this *roomSrv) Create(room *model.Room) (err error) {
 		err = errors.New("房间添加失败，请联系管理员")
 		return
 	}
+	event.Send(room.Uid, event.RoomCreate, room.ID)
 	return
 }
 
@@ -105,17 +106,18 @@ func (roomSrv) Player(rid, uid uint) (player model.Player, err error) {
 	return
 }
 
-func (this *roomSrv) SitDown(rid, uid uint) (deskId int, err error) {
+func (this *roomSrv) SitDown(rid, uid uint) (roomId uint, deskId int, err error) {
 	var room model.Room
 	room, err = this.Get(rid)
 	if err != nil {
 		return
 	}
-
+	roomId = rid
 	// 判断是否已在其他房间坐下
 	var p model.Player
 	dao.Db.Where("desk_id<>0 and uid=? and room_id<>?", uid, rid).First(&p)
 	if p.ID > 0 {
+		roomId = p.RoomId
 		err = errors.New("您当前正在其他房间")
 		return
 	}
@@ -162,6 +164,14 @@ func (this *roomSrv) SitDown(rid, uid uint) (deskId int, err error) {
 	player.JoinedAt = &t
 	dao.Db.Save(&player)
 
+	ps := this.PlayersSitDown(rid)
+	for _, p := range ps {
+		if !model.Online.Get(p.Uid) {
+			continue
+		}
+		event.Send(p.Uid, event.RoomJoin, rid, uid)
+	}
+
 	return
 }
 
@@ -189,6 +199,7 @@ func (this *roomSrv) Join(rid, uid uint, nick string) (err error) {
 		err = errors.New("加入出错，请联系管理员")
 		return
 	}
+
 	return
 }
 
@@ -196,8 +207,6 @@ func (this *roomSrv) Join(rid, uid uint, nick string) (err error) {
 退出房间
  */
 func (this *roomSrv) Exit(rid, uid uint) (err error) {
-	// 通知自己的客户端退出
-	event.Send(uid, "RoomExit", uid)
 
 	var player model.Player
 	player, err = this.Player(rid, uid)
@@ -209,16 +218,17 @@ func (this *roomSrv) Exit(rid, uid uint) (err error) {
 		return
 	}
 
+	// 通知其他客户端玩家，我退出了
+	ps := this.PlayersSitDown(rid)
+	for _, p := range ps {
+		event.Send(p.Uid, event.RoomExit, rid, uid)
+		log.Println(p.Uid, "\t退出房间")
+	}
+
 	player.JoinedAt = nil // 加入时间设置为空
 	player.DeskId = 0     // 释放座位号
 	dao.Db.Save(&player)
 
-	// 通知其他客户端玩家，我退出了
-	ps := this.PlayersSitDown(rid)
-	for _, p := range ps {
-		event.Send(p.Uid, "RoomExit", uid)
-		log.Println(p.Uid, "\t退出房间")
-	}
 	return
 }
 
@@ -253,6 +263,20 @@ func (this *roomSrv) Start(roomId, uid uint) (err error) {
 	}
 	room.Status = enum.GamePlaying
 	dao.Db.Save(&room)
+
+	// 发牌
+	if err = this.DealCards(roomId); err != nil {
+		return
+	}
+
+	// 通知所有人游戏开始
+	for _, p := range this.PlayersSitDown(roomId) {
+		event.Send(p.Uid, event.RoomStart, roomId)
+	}
+
+
+
+
 	return
 }
 
@@ -264,5 +288,99 @@ func (this *roomSrv) Players(roomId uint) (players []model.Player) {
 // 房间中所有坐下的玩家
 func (this *roomSrv) PlayersSitDown(roomId uint) (players []model.Player) {
 	dao.Db.Where(&model.Player{RoomId: roomId}).Where("desk_id>0").Find(&players)
+	return
+}
+
+func (this *roomSrv) DealCards(roomId uint) (err error) {
+
+	// 获取房间信息
+	var room model.Room
+	room, err = this.Get(roomId)
+
+	// 获取玩家信息
+	players := this.PlayersSitDown(roomId)
+	if len(players) < 2 {
+		err = errors.New("少于2个玩家，无法开始")
+		return
+	}
+
+	var cards []int
+	for i := 0; i < 54; i++ {
+		cards = append(cards, i)
+	}
+	rand.Seed(time.Now().Unix())
+	for i, _ := range players {
+		players[i].Cards = ""
+		for j := 0; j < 5; j++ {
+			n := 0
+			if room.King == enum.KingNone {
+				n = rand.Intn(len(cards) - 2)
+			} else {
+				n = rand.Intn(len(cards))
+			}
+			players[i].Cards += fmt.Sprintf("|%v", cards[n])
+			cards = append(cards[:n], cards[n+1:]...)
+		}
+		players[i].Cards = players[i].Cards[1:]
+		dao.Db.Save(&players[i])
+	}
+
+	return
+}
+
+// 下注
+func (this *roomSrv) SetScore(roomId, uid uint, score int) (err error) {
+	room, e := this.Get(roomId)
+	if e != nil {
+		err = e
+		return
+	}
+
+	if room.Status != enum.GamePlaying {
+		err = errors.New("游戏未开始，无法下注")
+		return
+	}
+
+	ss := [][]int{{1, 2}, {2, 4}, {3, 6}, {4, 8}, {5, 10}, {10, 20}}
+	s := ss[room.Score]
+
+	if s[0] != score && s[1] != score {
+		err = errors.New("积分不合法")
+		return
+	}
+
+	// 设置到players表
+	player, e := this.Player(roomId, uid)
+	if e != nil {
+		err = e
+		return
+	}
+
+	if player.Score != 0 {
+		err = errors.New("您已经下过注，请勿重复下注")
+		return
+	}
+
+	player.Score = score
+	dao.Db.Save(&player)
+
+	// 通知所有人有人下注
+	allSetScore := true
+	ps := this.Players(roomId)
+	for _, p := range ps {
+		event.Send(p.Uid, "SetScore", roomId, uid, score)
+		// 坐下的用户如果没下注，就表示还有人没下注
+		if p.DeskId != 0 && p.Score == 0 {
+			allSetScore = false
+		}
+	}
+
+	// 如果每个人都下注了，通知玩家全下了注
+	if allSetScore {
+		for _, p := range ps {
+			event.Send(p.Uid, "SetScoreAll", roomId)
+		}
+	}
+
 	return
 }

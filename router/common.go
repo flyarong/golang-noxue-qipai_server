@@ -63,17 +63,12 @@ func eventsFunc(c *gin.Context) {
 	model.Online.SetOnline(info.Uid)
 
 	var evts []event.Event
-	var err error
-	for i := 0; i < 30; i++ {
-		evts, err = event.Get(info.Uid)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, utils.Msg(err.Error()))
-			return
-		}
+	for i := 0; i < 10; i++ {
+		evts, _ = event.Get(info.Uid)
 		if len(evts) > 0 {
 			break
 		}
-		time.Sleep(time.Millisecond * 500)
+		time.Sleep(time.Millisecond * 100)
 	}
 	c.JSON(http.StatusOK, utils.Msg("获取事件成功").AddData("events", evts))
 }
@@ -90,7 +85,7 @@ func sendEventFunc(c *gin.Context) {
 		return
 	}
 
-	err := event.Send(form.Uid, form.Event, 111, "admin")
+	err := event.Send(form.Uid, event.EventType(form.Event), 111, "admin")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, utils.Msg(err.Error()))
 		return

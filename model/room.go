@@ -52,20 +52,6 @@ type ClubUser struct {
 	Admin  bool              // 是否是管理员 true 是管理员
 }
 
-// 每局游戏数据
-type Game struct {
-	gorm.Model
-	RoomId  uint
-	Count   int    // 第几局
-	Cards   string // 已竖线分割的牌型字符串
-	Order   int    // 座位编号
-	Banker  bool   // 是否是庄家 true表示是庄家
-	Times   int    // 倍数
-	Base    int    // 底分
-	Special int    // 特殊牌型加倍
-	Score   int    // 输赢积分，通过底分*庄家倍数*特殊牌型加倍 计算
-}
-
 // 记录房间中的用户
 type Player struct {
 	gorm.Model
@@ -73,7 +59,20 @@ type Player struct {
 	Nick     string                   // 昵称
 	DeskId   int                      // 座位号
 	RoomId   uint                     // 房间编号
+	Banker   bool                     // 是否是庄家 true表示是庄家
+	Times    int                      // 倍数
+	Special  int                      // 特殊牌型加倍
+	Score    int                      // 下注积分
+	AllScore int                      // 输赢积分，通过底分*庄家倍数*特殊牌型加倍 计算
 	Cards    string                   // 用户所拥有的牌
 	IsReady  bool                     // 是否已准备
 	JoinedAt *time.Time `sql:"index"` // 加入时间
+}
+
+
+type Event struct {
+	gorm.Model
+	Uid  uint `sql:"index"`
+	Name string
+	Args string
 }

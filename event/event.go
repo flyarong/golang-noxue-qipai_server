@@ -1,91 +1,54 @@
 package event
 
 import (
-	"encoding/json"
-	"errors"
-	"log"
-	"qipai/utils"
-	"strconv"
-	"sync"
+	"fmt"
+	"qipai/dao"
+	"qipai/model"
+	"strings"
+)
+
+type EventType string
+
+const (
+	RoomJoin   EventType = "RoomJoin"
+	RoomExit   EventType = "RoomExit"
+	RoomList   EventType = "RoomList"
+	RoomCreate EventType = "RoomCreate"
+	RoomDelete EventType = "RoomDelete"
+	RoomStart  EventType = "RoomStart"
 )
 
 type Event struct {
-	Name string      `json:"name"`
+	Name EventType   `json:"name"`
 	Args interface{} `json:"args"`
 }
 
-var evtStr string = "Event"
+func Send(uid uint, eventName EventType, args ...interface{}) (err error) {
 
-var evtLock sync.Mutex
-
-var events map[string]Event
-
-func init() {
-	events = make(map[string]Event)
-}
-
-func Send(uid uint, eventName string, args ...interface{}) (err error) {
-	evtLock.Lock()
-	defer evtLock.Unlock()
-
-	key := evtStr + ":" + strconv.Itoa(int(uid))
-
-	var evts []Event
-
-	// 获取之前的事件
-	v := utils.Lv.Get(key)
-	if v != "" {
-		err = json.Unmarshal([]byte(v), &evts)
-		if err!=nil {
-			log.Println(err)
-			err = errors.New("解析事件信息出错")
-			return
-		}
+	var e model.Event
+	e.Uid = uid
+	e.Name = string(eventName)
+	for _, a := range args {
+		e.Args += fmt.Sprintf("\t%v", a)
 	}
-
-	// 把事件添加到列表
-	var evt Event
-	evt.Name = eventName
-	var as []interface{}
-	for _,v:=range args{
-		as = append(as, v)
-	}
-	evt.Args =as
-	evts = append(evts, evt)
-
-	bs, e := json.Marshal(evts)
-	if e != nil {
-		err = e
-		return
-	}
-	err = utils.Lv.Put(key, string(bs))
-	log.Println(string(bs))
+	dao.Db.Save(&e)
 	return
 }
 
-func Get(uid uint) (evts []Event, err error) {
-	evtLock.Lock()
-	defer evtLock.Unlock()
-
-	key := evtStr + ":" + strconv.Itoa(int(uid))
-
-	v := utils.Lv.Get(key)
-	if v == "" {
+func Get(uid uint) (events []Event, ok bool) {
+	var e model.Event
+	dao.Db.Where("uid=?", uid).First(&e)
+	if e.ID == 0 {
 		return
 	}
-	log.Println(v)
-	err = json.Unmarshal([]byte(v), &evts)
-	if err != nil {
-		log.Println(err)
-		err = errors.New("事件解析出错")
-		return
+	var ev Event
+	ev.Name = EventType(e.Name)
+	if len(e.Args)>0{
+		ev.Args = strings.Split(e.Args, "\t")[1:]
 	}
+	events = append(events, ev)
 
-	err = utils.Lv.Del(key)
-	if err != nil {
-		log.Println(err)
-		err = errors.New("事件删除出错")
-	}
-
+	dao.Db.Delete(&model.Event{}, e.ID)
+	ok = true
 	return
 }
