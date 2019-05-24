@@ -1,7 +1,6 @@
 package model
 
 import (
-	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -41,7 +40,6 @@ func (this *online) SetOnline(uid uint) {
 	this.lock.Lock()
 	defer this.lock.Unlock()
 
-	fmt.Println("更新在线状态:",uid,"  ",time.Now().Unix()-this.info[uid])
 	this.info[uid] = time.Now().Unix()
 }
 

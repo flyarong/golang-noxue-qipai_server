@@ -328,8 +328,13 @@ func roomsCardsFunc(c *gin.Context) {
 	if len(uidStr) > 0 {
 		// 只有下注选定了庄家，才可以看别人的牌
 		hasBanker := false
-		for _, p := range srv.Room.PlayersSitDown(uint(rid)) {
-			if p.Banker {
+		gs, err := srv.Room.GetCurrentGames(uint(rid))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, utils.Msg(err.Error()).Code(-1))
+			return
+		}
+		for _, g := range gs {
+			if g.Banker {
 				hasBanker = true
 				break
 			}
@@ -348,23 +353,23 @@ func roomsCardsFunc(c *gin.Context) {
 		uid = uint(n)
 	}
 
-	player, err := srv.Room.Player(uint(rid), uid)
+	game, err := srv.Room.GetCurrentGame(uint(rid), uid)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, utils.Msg(err.Error()).Code(-1))
 		return
 	}
 
-	cards:=player.Cards
-	if(player.Score==0){
-		cs := strings.Split(cards,"|")
+	cards := game.Cards
+	if game.Times == 0 {
+		cs := strings.Split(cards, "|")
 		cs = cs[:4]
-		cards = strings.Join(cs,"|")
+		cards = strings.Join(cs, "|")
 	}
 
 	c.JSON(http.StatusOK, utils.Msg("获取纸牌成功").AddData("cards", cards))
 }
 
-func roomsSetScore(c *gin.Context){
+func roomsSetScore(c *gin.Context) {
 	rid, err := strconv.Atoi(c.Param("rid"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, utils.Msg("房间编号必须是数字").Code(-1))
@@ -377,8 +382,8 @@ func roomsSetScore(c *gin.Context){
 	}
 	info := c.MustGet("user").(*utils.UserInfo)
 
-	err = srv.Room.SetScore(uint(rid),info.Uid,score)
-	if err!=nil {
+	err = srv.Room.SetScore(uint(rid), info.Uid, score)
+	if err != nil {
 		c.JSON(http.StatusBadRequest, utils.Msg(err.Error()).Code(-1))
 		return
 	}
@@ -392,5 +397,3 @@ func roomsDeleteFunc(c *gin.Context) {
 	//}
 	//info := c.MustGet("user").(*utils.UserInfo)
 }
-
-

@@ -16,6 +16,7 @@ const (
 	RoomCreate EventType = "RoomCreate"
 	RoomDelete EventType = "RoomDelete"
 	RoomStart  EventType = "RoomStart"
+	GameBegin  EventType = "GameBegin"
 )
 
 type Event struct {

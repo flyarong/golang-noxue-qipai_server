@@ -21,7 +21,7 @@ type ClubRoomBase struct {
 	gorm.Model
 	Score     enum.ScoreType // 底分 以竖线分割的底分方式
 	Players   int            // 玩家个数
-	Count     int            // 局数
+	Count     int            // 总局数
 	StartType enum.StartType // 游戏开始方式
 	Pay       enum.PayType   // 付款方式 0 俱乐部老板付 1 AA
 	Times     enum.TimesType // 翻倍规则，预先固定的几个选择，比如：牛牛x3  牛九x2
@@ -59,16 +59,22 @@ type Player struct {
 	Nick     string                   // 昵称
 	DeskId   int                      // 座位号
 	RoomId   uint                     // 房间编号
-	Banker   bool                     // 是否是庄家 true表示是庄家
-	Times    int                      // 倍数
-	Special  int                      // 特殊牌型加倍
-	Score    int                      // 下注积分
-	AllScore int                      // 输赢积分，通过底分*庄家倍数*特殊牌型加倍 计算
-	Cards    string                   // 用户所拥有的牌
-	IsReady  bool                     // 是否已准备
 	JoinedAt *time.Time `sql:"index"` // 加入时间
 }
 
+type Game struct {
+	gorm.Model
+	Banker   bool   // 是否是庄家 true表示是庄家
+	PlayerId uint   // 玩家编号
+	RoomId   uint   // 房间编号
+	DeskId   int    // 座位号
+	Times    int    // 下注倍数
+	Special  int    // 特殊牌型加倍
+	Score    int    // 输赢积分，通过底分*庄家倍数*特殊牌型加倍 计算
+	Cards    string // 用户所拥有的牌
+	Current  int    // 这是第几局
+	Auto     bool   // 是否自动托管
+}
 
 type Event struct {
 	gorm.Model

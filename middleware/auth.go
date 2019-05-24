@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"github.com/gin-gonic/gin"
-	"log"
 	"net/http"
 	"qipai/utils"
 )
@@ -19,8 +18,6 @@ func JWTAuth() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-
-		log.Print("get token: ", token)
 
 		j := utils.NewJWT()
 		// parseToken 解析token包含的信息

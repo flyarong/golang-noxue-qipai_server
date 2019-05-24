@@ -9,6 +9,7 @@ import (
 	"qipai/enum"
 	"qipai/event"
 	"qipai/model"
+	"sync"
 	"time"
 )
 
@@ -262,20 +263,82 @@ func (this *roomSrv) Start(roomId, uid uint) (err error) {
 		}
 	}
 	room.Status = enum.GamePlaying
-	dao.Db.Save(&room)
 
-	// 发牌
-	if err = this.DealCards(roomId); err != nil {
-		return
-	}
+	dao.Db.Save(&room)
 
 	// 通知所有人游戏开始
 	for _, p := range this.PlayersSitDown(roomId) {
 		event.Send(p.Uid, event.RoomStart, roomId)
 	}
 
+	if err = this.GameBegin(roomId); err != nil {
+		return
+	}
 
+	return
+}
 
+// 开始一局新游戏
+func (this *roomSrv) GameBegin(roomId uint) (err error) {
+	// 发牌
+	if err = this.DealCards(roomId); err != nil {
+		return
+	}
+
+	// 通知所有人游戏开局了
+	for _, p := range this.PlayersSitDown(roomId) {
+		event.Send(p.Uid, event.GameBegin, roomId)
+	}
+
+	room, err := this.Get(roomId)
+	if err != nil {
+		return
+	}
+
+	games, err := this.GetCurrentGames(roomId)
+	if err != nil {
+		return
+	}
+
+	// 加锁，保证线程执行顺序
+	var lock sync.Mutex
+	for _, game := range games {
+
+		go func(g model.Game) {
+
+			if g.Auto { // 如果是托管，4秒就自动下注
+				time.Sleep(time.Second * 5)
+			} else { // 否则，30秒后进入托管模式
+				time.Sleep(time.Second * 5)
+			}
+
+			lock.Lock()
+			defer  lock.Unlock()
+			// 判断是否还是之前的那一局
+			roomNow, err := this.Get(roomId)
+			if err != nil {
+				return
+			}
+			// 不是之前那一局，或者游戏结束，就退出
+			if room.Current != roomNow.Current || room.Status == enum.GameOver {
+				return
+			}
+
+			// 如果还没有下注，进入托管
+			game, e := this.GetCurrentGame(roomId, g.PlayerId)
+			if e != nil {
+				err = e
+				return
+			}
+			if game.Times == 0 {
+				game.Times = 1000
+				game.Auto = true  // 设置为托管
+				dao.Db.Save(&game)
+				err = this.SendSetTimes(roomId, g.PlayerId, 1000)
+			}
+		}(game)
+
+	}
 
 	return
 }
@@ -291,11 +354,36 @@ func (this *roomSrv) PlayersSitDown(roomId uint) (players []model.Player) {
 	return
 }
 
+func (this *roomSrv)SendGameOver(roomId uint){
+	for _, p := range this.Players(roomId) {
+		event.Send(p.Uid, "GameOver", roomId)
+	}
+}
 func (this *roomSrv) DealCards(roomId uint) (err error) {
 
 	// 获取房间信息
 	var room model.Room
 	room, err = this.Get(roomId)
+
+	if room.Status == enum.GameOver{
+		this.SendGameOver(roomId)
+		return
+	}
+
+	// 如果当前已经是最大局数，就不发牌了，提示gameover
+	if room.Status == enum.GamePlaying && room.Current >= room.Count {
+		room.Status = enum.GameOver
+		//room.Current --
+		t := time.Now()
+		room.DeletedAt = &t // 房间解散
+		dao.Db.Save(&room)
+		this.SendGameOver(roomId)
+		return
+	}
+
+	// 更新当前局数
+	room.Current++
+	dao.Db.Save(&room)
 
 	// 获取玩家信息
 	players := this.PlayersSitDown(roomId)
@@ -309,8 +397,13 @@ func (this *roomSrv) DealCards(roomId uint) (err error) {
 		cards = append(cards, i)
 	}
 	rand.Seed(time.Now().Unix())
-	for i, _ := range players {
-		players[i].Cards = ""
+	for _, p := range players {
+
+		var game model.Game
+		game.RoomId = roomId
+		game.Current = room.Current
+		game.PlayerId = p.Uid
+
 		for j := 0; j < 5; j++ {
 			n := 0
 			if room.King == enum.KingNone {
@@ -318,18 +411,18 @@ func (this *roomSrv) DealCards(roomId uint) (err error) {
 			} else {
 				n = rand.Intn(len(cards))
 			}
-			players[i].Cards += fmt.Sprintf("|%v", cards[n])
+			game.Cards += fmt.Sprintf("|%v", cards[n])
 			cards = append(cards[:n], cards[n+1:]...)
 		}
-		players[i].Cards = players[i].Cards[1:]
-		dao.Db.Save(&players[i])
+		game.Cards = game.Cards[1:]
+		dao.Db.Save(&game)
 	}
 
 	return
 }
 
 // 下注
-func (this *roomSrv) SetScore(roomId, uid uint, score int) (err error) {
+func (this *roomSrv) SetScore(roomId, uid uint, times int) (err error) {
 	room, e := this.Get(roomId)
 	if e != nil {
 		err = e
@@ -344,43 +437,95 @@ func (this *roomSrv) SetScore(roomId, uid uint, score int) (err error) {
 	ss := [][]int{{1, 2}, {2, 4}, {3, 6}, {4, 8}, {5, 10}, {10, 20}}
 	s := ss[room.Score]
 
-	if s[0] != score && s[1] != score {
+	if s[0] != times && s[1] != times {
 		err = errors.New("积分不合法")
 		return
 	}
 
-	// 设置到players表
-	player, e := this.Player(roomId, uid)
+	game, e := this.GetCurrentGame(roomId, uid)
 	if e != nil {
 		err = e
 		return
 	}
 
-	if player.Score != 0 {
+	if game.Times != 0 {
 		err = errors.New("您已经下过注，请勿重复下注")
 		return
 	}
 
-	player.Score = score
-	dao.Db.Save(&player)
+	game.Times = times
+	game.Auto = false  // 设置为手动下注
+	dao.Db.Save(&game)
 
+	err = this.SendSetTimes(roomId, uid, times)
+
+	return
+}
+
+func (this *roomSrv) SendSetTimes(roomId, uid uint, times int) (err error) {
 	// 通知所有人有人下注
-	allSetScore := true
+	allSetTimes := true
 	ps := this.Players(roomId)
 	for _, p := range ps {
-		event.Send(p.Uid, "SetScore", roomId, uid, score)
-		// 坐下的用户如果没下注，就表示还有人没下注
-		if p.DeskId != 0 && p.Score == 0 {
-			allSetScore = false
+		event.Send(p.Uid, "SetTimes", roomId, uid, times)
+	}
+
+	games, e := this.GetCurrentGames(roomId)
+	if e != nil {
+		err = e
+		return
+	}
+
+	for _, game := range games {
+		// 如果有人没下注，表示不是所有人都下注了
+		if game.Times == 0 {
+			allSetTimes = false
 		}
 	}
 
 	// 如果每个人都下注了，通知玩家全下了注
-	if allSetScore {
+	if allSetTimes {
 		for _, p := range ps {
-			event.Send(p.Uid, "SetScoreAll", roomId)
+			event.Send(p.Uid, "SetTimesAll", roomId)
 		}
+		go func() {
+			time.Sleep(time.Second*2)
+			this.GameBegin(roomId)
+		}()
 	}
+	return
+}
 
+func (this *roomSrv) GetCurrentGame(roomId, uid uint) (game model.Game, err error) {
+	room, e := this.Get(roomId)
+	if e != nil {
+		err = e
+		return
+	}
+	game, err = this.GetGame(roomId, uid, room.Current)
+	return
+}
+
+func (this *roomSrv) GetGame(roomId, uid uint, current int) (game model.Game, err error) {
+	dao.Db.Where(&model.Game{RoomId: roomId, PlayerId: uid, Current: current}).First(&game)
+	if game.ID == 0 {
+		err = errors.New("获取游戏数据失败")
+		return
+	}
+	return
+}
+
+func (this *roomSrv) GetCurrentGames(roomId uint) (game []model.Game, err error) {
+	room, e := this.Get(roomId)
+	if e != nil {
+		err = e
+		return
+	}
+	game, err = this.GetGames(roomId, room.Current)
+	return
+}
+
+func (this *roomSrv) GetGames(roomId uint, current int) (game []model.Game, err error) {
+	dao.Db.Where(&model.Game{RoomId: roomId, Current: current}).Find(&game)
 	return
 }
