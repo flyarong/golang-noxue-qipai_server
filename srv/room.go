@@ -305,17 +305,23 @@ func (this *roomSrv) GameBegin(roomId uint) (err error) {
 	for _, game := range games {
 
 		go func(g model.Game) {
-
-			if g.Auto { // 如果是托管，4秒就自动下注
-				time.Sleep(time.Second * 5)
-			} else { // 否则，30秒后进入托管模式
-				time.Sleep(time.Second * 5)
-			}
-
 			lock.Lock()
-			defer  lock.Unlock()
+
+			waitTime := time.Second * 10
+
+			// 如果不是第一局，看上一把是否有托管
+			if g.Current != 1 {
+				tGame, _ := this.GetGame(g.RoomId, g.PlayerId, g.Current-1)
+				if tGame.Auto {
+					waitTime = time.Second * 4
+				}
+			}
+			lock.Unlock()
+			time.Sleep(waitTime)
+			lock.Lock()
+			defer lock.Unlock()
 			// 判断是否还是之前的那一局
-			roomNow, err := this.Get(roomId)
+			roomNow, err := this.Get(g.RoomId)
 			if err != nil {
 				return
 			}
@@ -325,16 +331,30 @@ func (this *roomSrv) GameBegin(roomId uint) (err error) {
 			}
 
 			// 如果还没有下注，进入托管
-			game, e := this.GetCurrentGame(roomId, g.PlayerId)
+			game, e := this.GetCurrentGame(g.RoomId, g.PlayerId)
 			if e != nil {
 				err = e
 				return
 			}
+			// 如果用户没有下注，就自动下注
 			if game.Times == 0 {
-				game.Times = 1000
-				game.Auto = true  // 设置为托管
+				/*
+				自动下注规则，第一局就挂机，那就按照最低倍数下注
+				第二局及以后都按照上一局的倍数为准
+				*/
+				times := 0
+				if game.Current == 1 {
+					ss := [][]int{{1, 2}, {2, 4}, {3, 6}, {4, 8}, {5, 10}, {10, 20}}
+					s := ss[room.Score]
+					times = s[0]
+				} else {
+					tGame, _ := this.GetGame(game.RoomId, game.PlayerId, game.Current-1)
+					times = tGame.Times
+				}
+				game.Times = times
+				game.Auto = true // 设置为托管
 				dao.Db.Save(&game)
-				err = this.SendSetTimes(roomId, g.PlayerId, 1000)
+				err = this.SendSetTimes(roomId, g.PlayerId, times)
 			}
 		}(game)
 
@@ -354,7 +374,7 @@ func (this *roomSrv) PlayersSitDown(roomId uint) (players []model.Player) {
 	return
 }
 
-func (this *roomSrv)SendGameOver(roomId uint){
+func (this *roomSrv) SendGameOver(roomId uint) {
 	for _, p := range this.Players(roomId) {
 		event.Send(p.Uid, "GameOver", roomId)
 	}
@@ -365,7 +385,7 @@ func (this *roomSrv) DealCards(roomId uint) (err error) {
 	var room model.Room
 	room, err = this.Get(roomId)
 
-	if room.Status == enum.GameOver{
+	if room.Status == enum.GameOver {
 		this.SendGameOver(roomId)
 		return
 	}
@@ -454,7 +474,7 @@ func (this *roomSrv) SetScore(roomId, uid uint, times int) (err error) {
 	}
 
 	game.Times = times
-	game.Auto = false  // 设置为手动下注
+	game.Auto = false // 设置为手动下注
 	dao.Db.Save(&game)
 
 	err = this.SendSetTimes(roomId, uid, times)
@@ -489,7 +509,7 @@ func (this *roomSrv) SendSetTimes(roomId, uid uint, times int) (err error) {
 			event.Send(p.Uid, "SetTimesAll", roomId)
 		}
 		go func() {
-			time.Sleep(time.Second*2)
+			time.Sleep(time.Second * 2)
 			this.GameBegin(roomId)
 		}()
 	}
@@ -529,3 +549,5 @@ func (this *roomSrv) GetGames(roomId uint, current int) (game []model.Game, err 
 	dao.Db.Where(&model.Game{RoomId: roomId, Current: current}).Find(&game)
 	return
 }
+
+
