@@ -7,15 +7,19 @@ import (
 	"qipai/config"
 )
 
-var Db *gorm.DB
+var db *gorm.DB
+
+func Db() *gorm.DB{
+	return db.New()
+}
 
 func init() {
 	var err error
-	Db, err = gorm.Open("mysql", config.Config.Db.Url)
+	db, err = gorm.Open("mysql", config.Config.Db.Url)
 	if err != nil {
 		log.Panicln(err.Error())
 	}
 
-	Db = Db.Set("gorm:table_options", "ENGINE=InnoDB  DEFAULT CHARSET=utf8mb4;")
+	db = db.Set("gorm:table_options", "ENGINE=InnoDB  DEFAULT CHARSET=utf8mb4;")
 	//Db.LogMode(true)
 }

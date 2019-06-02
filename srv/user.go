@@ -28,14 +28,14 @@ func (userSrv) Register(user *model.User) (err error) {
 	}
 	// 检查授权信息是否存在
 	a := model.Auth{UserType: user.Auths[0].UserType, Name: user.Auths[0].Name}
-	dao.Db.Where(&a).First(&a)
+	dao.Db().Where(&a).First(&a)
 
 	if a.Model.ID > 0 {
 		err = errors.New(a.Name + " 已被注册，请更换一个账号")
 		return
 	}
 
-	dao.Db.Create(&user)
+	dao.Db().Create(&user)
 	return
 }
 
@@ -43,7 +43,7 @@ func (userSrv) Bind(uid uint, auth *model.Auth) (err error) {
 
 	// 检查用户是否存在
 	var u model.User
-	dao.Db.Where("id=?", uid).First(&u)
+	dao.Db().Where("id=?", uid).First(&u)
 	if u.ID == 0 {
 		err = errors.New("要绑定的用户不存在")
 		return
@@ -51,21 +51,21 @@ func (userSrv) Bind(uid uint, auth *model.Auth) (err error) {
 
 	// 检查授权信息是否存在
 	a := model.Auth{UserType: auth.UserType, Name: auth.Name}
-	dao.Db.Where(&a).First(&a)
+	dao.Db().Where(&a).First(&a)
 
 	if a.Model.ID > 0 {
 		err = errors.New(a.Name + " 已被绑定过，请更换一个账号")
 		return
 	}
 
-	dao.Db.Create(auth)
+	dao.Db().Create(auth)
 
 	return
 }
 
 func (this userSrv) Login(auth *model.Auth) (token string, err error) {
 	var a model.Auth
-	dao.Db.Where(&model.Auth{UserType: auth.UserType, Name: auth.Name}).First(&a)
+	dao.Db().Where(&model.Auth{UserType: auth.UserType, Name: auth.Name}).First(&a)
 
 	if a.ID == 0 {
 		err = errors.New("账号不存在，请确认登录类型和账号正确")
@@ -78,7 +78,7 @@ func (this userSrv) Login(auth *model.Auth) (token string, err error) {
 	}
 
 	var u model.User
-	dao.Db.Where(a.UserId).First(&u)
+	dao.Db().Where(a.UserId).First(&u)
 	if u.ID == 0 {
 		err = errors.New("用户信息不存在")
 		return
@@ -111,7 +111,7 @@ func (this userSrv) TokenRefresh(token string) (string, error) {
 
 func (userSrv) GetInfo(uid uint) (*model.User, error) {
 	var user model.User
-	dao.Db.Where("id=?", uid).First(&user)
+	dao.Db().Where("id=?", uid).First(&user)
 
 	if user.ID == 0 {
 		return nil, errors.New(fmt.Sprintf("没找到id为[%d]的用户信息", uid))

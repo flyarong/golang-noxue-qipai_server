@@ -3,12 +3,12 @@ package srv
 import (
 	"errors"
 	"fmt"
-	"log"
 	"math/rand"
 	"qipai/dao"
 	"qipai/enum"
 	"qipai/event"
 	"qipai/model"
+	"qipai/srv/card"
 	"sync"
 	"time"
 )
@@ -28,22 +28,22 @@ func deleteRoom() {
 		for {
 			time.Sleep(time.Second * 10)
 			var res []result
-			dao.Db.Raw("select id,uid  from rooms  where deleted_at is null and club_id<>1 and status=0 and now()-created_at>1000").Scan(&res)
+			dao.Db().Raw("select id,uid  from rooms  where deleted_at is null and club_id<>1 and status=0 and now()-created_at>1000").Scan(&res)
 			if len(res) > 0 {
 				var ids []int
 				for _, v := range res {
 					ids = append(ids, v.ID)
 					event.Send(uint(v.Uid), event.RoomDelete, v.ID)
 				}
-				dao.Db.Unscoped().Where("id in (?)", ids).Delete(model.Room{})
-				dao.Db.Where("room_id in (?)", ids).Delete(&model.Player{})
+				dao.Db().Unscoped().Where("id in (?)", ids).Delete(model.Room{})
+				dao.Db().Where("room_id in (?)", ids).Delete(&model.Player{})
 			}
 		}
 	}()
 }
 
 func (this *roomSrv) Create(room *model.Room) (err error) {
-	dao.Db.Save(room)
+	dao.Db().Save(room)
 	if room.ID == 0 {
 		err = errors.New("房间添加失败，请联系管理员")
 		return
@@ -53,8 +53,8 @@ func (this *roomSrv) Create(room *model.Room) (err error) {
 }
 
 func (roomSrv) Get(roomId uint) (room model.Room, err error) {
-	dao.Db.First(&room, roomId)
-	if room.ID == 0 {
+
+	if dao.Db().First(&room, roomId).RecordNotFound() {
 		err = errors.New("该房间不存在，或已解散")
 		return
 	}
@@ -63,11 +63,11 @@ func (roomSrv) Get(roomId uint) (room model.Room, err error) {
 
 func (roomSrv) Delete(roomId uint) (err error) {
 	// 删除房间信息
-	dao.Db.Where("id=? and status=0", roomId).Delete(&model.Room{})
+	dao.Db().Where("id=? and status=0", roomId).Delete(&model.Room{})
 
 	// 获取玩家
 	var ps []model.Player
-	dao.Db.Where("room_id=?", roomId).Find(&ps)
+	dao.Db().Where("room_id=?", roomId).Find(&ps)
 	for _, p := range ps {
 		// 只通知在线的玩家
 		if model.Online.Get(p.Uid) {
@@ -76,30 +76,30 @@ func (roomSrv) Delete(roomId uint) (err error) {
 	}
 
 	// 删除玩家
-	dao.Db.Where("room_id=?", roomId).Delete(&model.Player{})
+	dao.Db().Where("room_id=?", roomId).Delete(&model.Player{})
 	return
 }
 
 func (roomSrv) MyRooms(uid uint) (rooms []model.Room) {
 	// select r.* from rooms r join  players p on p.room_id=r.id where p.uid=100000;
-	dao.Db.Raw("select r.* from rooms r join  players p on p.room_id=r.id where r.`deleted_at` IS NULL and p.uid=?", uid).Scan(&rooms)
+	dao.Db().Raw("select r.* from rooms r join  players p on p.room_id=r.id where r.`deleted_at` IS NULL and p.uid=?", uid).Scan(&rooms)
 	return
 }
 
 func (roomSrv) IsRoomPlayer(rid, uid uint) bool {
 	var n int
-	dao.Db.Model(&model.Player{}).Where(&model.Player{Uid: uid, RoomId: rid}).Count(&n)
+	dao.Db().Model(&model.Player{}).Where(&model.Player{Uid: uid, RoomId: rid}).Count(&n)
 	return n > 0
 }
 
 func (roomSrv) RoomExists(roomId uint) bool {
 	var n int
-	dao.Db.Model(&model.Room{}).Where("id=?", roomId).Count(&n)
+	dao.Db().Model(&model.Room{}).Where("id=?", roomId).Count(&n)
 	return n > 0
 }
 
 func (roomSrv) Player(rid, uid uint) (player model.Player, err error) {
-	dao.Db.Where("uid=? and room_id=?", uid, rid).First(&player)
+	dao.Db().Where("uid=? and room_id=?", uid, rid).First(&player)
 	if player.ID == 0 {
 		err = errors.New("用户未进入当前房间，如果已进入，可以尝试退出房间重新进入")
 		return
@@ -116,8 +116,8 @@ func (this *roomSrv) SitDown(rid, uid uint) (roomId uint, deskId int, err error)
 	roomId = rid
 	// 判断是否已在其他房间坐下
 	var p model.Player
-	dao.Db.Where("desk_id<>0 and uid=? and room_id<>?", uid, rid).First(&p)
-	if p.ID > 0 {
+
+	if !dao.Db().Where("desk_id<>0 and uid=? and room_id<>?", uid, rid).First(&p).RecordNotFound() {
 		roomId = p.RoomId
 		err = errors.New("您当前正在其他房间")
 		return
@@ -133,12 +133,13 @@ func (this *roomSrv) SitDown(rid, uid uint) (roomId uint, deskId int, err error)
 	// 如果已经坐下，直接返回
 	if player.DeskId > 0 {
 		deskId = player.DeskId
+		this.sendSitDown(roomId, uid)
 		return
 	}
 
 	// 是否坐满
 	var n int
-	dao.Db.Model(&model.Player{}).Where("desk_id>0 and room_id=?", rid).Count(&n)
+	dao.Db().Model(&model.Player{}).Where("desk_id>0 and room_id=?", rid).Count(&n)
 	if n >= room.Players {
 		err = errors.New("当前房间已坐满")
 		return
@@ -146,7 +147,7 @@ func (this *roomSrv) SitDown(rid, uid uint) (roomId uint, deskId int, err error)
 
 	// 删除已经有人的座位
 	players := this.Players(rid)
-	deskIds := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}[:room.Players-1]
+	deskIds := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}[:room.Players]
 	for _, player := range players {
 		for i, v := range deskIds {
 			if player.DeskId == v {
@@ -163,17 +164,21 @@ func (this *roomSrv) SitDown(rid, uid uint) (roomId uint, deskId int, err error)
 
 	t := time.Now()
 	player.JoinedAt = &t
-	dao.Db.Save(&player)
+	dao.Db().Save(&player)
 
+	this.sendSitDown(roomId, uid)
+
+	return
+}
+
+func (this *roomSrv) sendSitDown(rid, uid uint) {
 	ps := this.PlayersSitDown(rid)
 	for _, p := range ps {
 		if !model.Online.Get(p.Uid) {
 			continue
 		}
-		event.Send(p.Uid, event.RoomJoin, rid, uid)
+		event.Send(p.Uid, event.PlayerSitDown, rid, uid)
 	}
-
-	return
 }
 
 func (this *roomSrv) Join(rid, uid uint, nick string) (err error) {
@@ -185,7 +190,6 @@ func (this *roomSrv) Join(rid, uid uint, nick string) (err error) {
 	}
 
 	if this.IsRoomPlayer(rid, uid) {
-		err = errors.New("该用户已经进入房间，不得重复进入")
 		return
 	}
 
@@ -195,7 +199,7 @@ func (this *roomSrv) Join(rid, uid uint, nick string) (err error) {
 		Nick:   nick,
 	}
 
-	dao.Db.Save(&ru)
+	dao.Db().Save(&ru)
 	if ru.ID == 0 {
 		err = errors.New("加入出错，请联系管理员")
 		return
@@ -209,28 +213,41 @@ func (this *roomSrv) Join(rid, uid uint, nick string) (err error) {
  */
 func (this *roomSrv) Exit(rid, uid uint) (err error) {
 
-	var player model.Player
-	player, err = this.Player(rid, uid)
-	if err != nil {
+	player, e := this.Player(rid, uid)
+	if e != nil {
 		// 房间被解散，也可以成功退出
-		if err.Error() == "用户未进入当前房间，如果已进入，可以尝试退出房间重新进入" {
-			err = nil
+		if e.Error() == "用户未进入当前房间，如果已进入，可以尝试退出房间重新进入" {
+			return
 		}
+		err = e
 		return
 	}
 
+	// 游戏开始后无法退出
+	room, e := this.Get(rid)
+	if e != nil {
+		err = e
+		return
+	}
+	if room.Status == enum.GamePlaying {
+		err = errors.New("游戏中，无法退出")
+		return
+	}
+
+	this.SendExit(rid, uid)
+
+	if dao.Db().Model(model.Player{}).Where("id=?", player.ID).Update(map[string]interface{}{"desk_id": 0, "joined_at": nil}).Error !=nil{
+		err = errors.New("更新退出房间数据失败")
+	}
+	return
+}
+
+func (this *roomSrv) SendExit(rid, uid uint) {
 	// 通知其他客户端玩家，我退出了
 	ps := this.PlayersSitDown(rid)
 	for _, p := range ps {
 		event.Send(p.Uid, event.RoomExit, rid, uid)
-		log.Println(p.Uid, "\t退出房间")
 	}
-
-	player.JoinedAt = nil // 加入时间设置为空
-	player.DeskId = 0     // 释放座位号
-	dao.Db.Save(&player)
-
-	return
 }
 
 func (this *roomSrv) Start(roomId, uid uint) (err error) {
@@ -239,6 +256,12 @@ func (this *roomSrv) Start(roomId, uid uint) (err error) {
 	room, e := this.Get(roomId)
 	if e != nil {
 		err = e
+		return
+	}
+
+	players := this.PlayersSitDown(roomId)
+	if len(players) < 2 {
+		err = errors.New("少于2个玩家，无法开始")
 		return
 	}
 
@@ -252,8 +275,8 @@ func (this *roomSrv) Start(roomId, uid uint) (err error) {
 	} else if room.StartType == enum.StartFirst { // 首位开始
 		// 获取首位玩家
 		var p model.Player
-		dao.Db.Where("room_id=? and desk_id > 0").Order("joined_at asc").First(&p)
-		if p.ID == 0 {
+		res := dao.Db().Where("room_id=? and desk_id > 0", roomId).Order("joined_at asc").First(&p)
+		if res.Error != nil || res.RecordNotFound() {
 			err = errors.New("该房间还没有人，看到这个错误请联系管理员")
 			return
 		}
@@ -264,7 +287,7 @@ func (this *roomSrv) Start(roomId, uid uint) (err error) {
 	}
 	room.Status = enum.GamePlaying
 
-	dao.Db.Save(&room)
+	dao.Db().Save(&room)
 
 	// 通知所有人游戏开始
 	for _, p := range this.PlayersSitDown(roomId) {
@@ -336,26 +359,20 @@ func (this *roomSrv) GameBegin(roomId uint) (err error) {
 				err = e
 				return
 			}
-			// 如果用户没有下注，就自动下注
-			if game.Times == 0 {
-				/*
-				自动下注规则，第一局就挂机，那就按照最低倍数下注
-				第二局及以后都按照上一局的倍数为准
-				*/
-				times := 0
-				if game.Current == 1 {
-					ss := [][]int{{1, 2}, {2, 4}, {3, 6}, {4, 8}, {5, 10}, {10, 20}}
-					s := ss[room.Score]
-					times = s[0]
-				} else {
-					tGame, _ := this.GetGame(game.RoomId, game.PlayerId, game.Current-1)
-					times = tGame.Times
-				}
-				game.Times = times
-				game.Auto = true // 设置为托管
-				dao.Db.Save(&game)
-				err = this.SendSetTimes(roomId, g.PlayerId, times)
+
+			// 已经抢庄，直接返回
+			if game.Times != -1 {
+				return
 			}
+
+			// 不抢庄并设置为托管
+			if dao.Db().Model(&game).Update(map[string]interface{}{"times": 0, "auto": true}).Error != nil {
+				return
+			}
+
+			// 通知玩家，抢庄信息
+			err = this.SendSetTimes(roomId, g.PlayerId, 0)
+
 		}(game)
 
 	}
@@ -364,13 +381,13 @@ func (this *roomSrv) GameBegin(roomId uint) (err error) {
 }
 
 func (this *roomSrv) Players(roomId uint) (players []model.Player) {
-	dao.Db.Where(&model.Player{RoomId: roomId}).Find(&players)
+	dao.Db().Where(&model.Player{RoomId: roomId}).Find(&players)
 	return
 }
 
 // 房间中所有坐下的玩家
 func (this *roomSrv) PlayersSitDown(roomId uint) (players []model.Player) {
-	dao.Db.Where(&model.Player{RoomId: roomId}).Where("desk_id>0").Find(&players)
+	dao.Db().Where(&model.Player{RoomId: roomId}).Where("desk_id>0").Find(&players)
 	return
 }
 
@@ -386,24 +403,21 @@ func (this *roomSrv) DealCards(roomId uint) (err error) {
 	room, err = this.Get(roomId)
 
 	if room.Status == enum.GameOver {
-		this.SendGameOver(roomId)
+		err = errors.New("游戏已经结束")
 		return
 	}
 
 	// 如果当前已经是最大局数，就不发牌了，提示gameover
 	if room.Status == enum.GamePlaying && room.Current >= room.Count {
 		room.Status = enum.GameOver
-		//room.Current --
-		t := time.Now()
-		room.DeletedAt = &t // 房间解散
-		dao.Db.Save(&room)
-		this.SendGameOver(roomId)
+		dao.Db().Save(&room)
+		err = errors.New("游戏已经结束")
 		return
 	}
 
 	// 更新当前局数
 	room.Current++
-	dao.Db.Save(&room)
+	dao.Db().Save(&room)
 
 	// 获取玩家信息
 	players := this.PlayersSitDown(roomId)
@@ -413,7 +427,7 @@ func (this *roomSrv) DealCards(roomId uint) (err error) {
 	}
 
 	var cards []int
-	for i := 0; i < 54; i++ {
+	for i := 0; i < 52; i++ {
 		cards = append(cards, i)
 	}
 	rand.Seed(time.Now().Unix())
@@ -422,6 +436,7 @@ func (this *roomSrv) DealCards(roomId uint) (err error) {
 		var game model.Game
 		game.RoomId = roomId
 		game.Current = room.Current
+		game.DeskId = p.DeskId
 		game.PlayerId = p.Uid
 
 		for j := 0; j < 5; j++ {
@@ -435,14 +450,52 @@ func (this *roomSrv) DealCards(roomId uint) (err error) {
 			cards = append(cards[:n], cards[n+1:]...)
 		}
 		game.Cards = game.Cards[1:]
-		dao.Db.Save(&game)
+		dao.Db().Save(&game)
 	}
 
 	return
 }
 
+// 设置抢庄倍数
+func (this *roomSrv) SetTimes(roomId, uid uint, times int) (err error) {
+	room, e := this.Get(roomId)
+	if e != nil {
+		err = e
+		return
+	}
+	if room.Status != enum.GamePlaying {
+		err = errors.New("游戏未开始，无法下注")
+		return
+	}
+
+	if times < 0 || times > 4 {
+		err = errors.New("抢庄倍数错误，只能是0-4倍")
+		return
+	}
+
+	game, e := this.GetCurrentGame(roomId, uid)
+	if e != nil {
+		err = e
+		return
+	}
+
+	// 已经抢庄，直接返回
+	if game.Times >= 0 {
+		return
+	}
+
+	// 手动抢庄，并设置为非托管
+	if dao.Db().Model(&game).Update(map[string]interface{}{"times": times, "auto": false}).Error != nil {
+		err = errors.New("更新下注信息失败")
+		return
+	}
+
+	err = this.SendSetTimes(roomId, uid, times)
+	return
+}
+
 // 下注
-func (this *roomSrv) SetScore(roomId, uid uint, times int) (err error) {
+func (this *roomSrv) SetScore(roomId, uid uint, score int) (err error) {
 	room, e := this.Get(roomId)
 	if e != nil {
 		err = e
@@ -457,7 +510,7 @@ func (this *roomSrv) SetScore(roomId, uid uint, times int) (err error) {
 	ss := [][]int{{1, 2}, {2, 4}, {3, 6}, {4, 8}, {5, 10}, {10, 20}}
 	s := ss[room.Score]
 
-	if s[0] != times && s[1] != times {
+	if s[0] != score && s[1] != score {
 		err = errors.New("积分不合法")
 		return
 	}
@@ -468,23 +521,24 @@ func (this *roomSrv) SetScore(roomId, uid uint, times int) (err error) {
 		return
 	}
 
-	if game.Times != 0 {
-		err = errors.New("您已经下过注，请勿重复下注")
+	// 已经下注，直接返回
+	if game.Score != 0 {
 		return
 	}
 
-	game.Times = times
-	game.Auto = false // 设置为手动下注
-	dao.Db.Save(&game)
+	if dao.Db().Model(&game).Update(map[string]interface{}{"score": score, "auto": false}).Error != nil {
+		err = errors.New("更新下注信息失败")
+		return
+	}
 
-	err = this.SendSetTimes(roomId, uid, times)
+	err = this.SendSetScore(roomId, uid, score)
 
 	return
 }
 
 func (this *roomSrv) SendSetTimes(roomId, uid uint, times int) (err error) {
+
 	// 通知所有人有人下注
-	allSetTimes := true
 	ps := this.Players(roomId)
 	for _, p := range ps {
 		event.Send(p.Uid, "SetTimes", roomId, uid, times)
@@ -497,21 +551,231 @@ func (this *roomSrv) SendSetTimes(roomId, uid uint, times int) (err error) {
 	}
 
 	for _, game := range games {
-		// 如果有人没下注，表示不是所有人都下注了
-		if game.Times == 0 {
-			allSetTimes = false
+		// 如果有人没抢庄
+		if game.Times < 0 {
+			return
 		}
 	}
 
-	// 如果每个人都下注了，通知玩家全下了注
-	if allSetTimes {
-		for _, p := range ps {
-			event.Send(p.Uid, "SetTimesAll", roomId)
+	// 抢庄完毕，通知玩家谁是庄家
+	bankerUid, e := this.selectBanker(roomId)
+	if e != nil {
+		err = e
+		return
+	}
+	for _, p := range ps {
+		event.Send(p.Uid, "SetBanker", roomId, bankerUid)
+	}
+
+	room, err := this.Get(roomId)
+	if err != nil {
+		return
+	}
+
+	// 加锁，保证线程执行顺序
+	var lock sync.Mutex
+	for _, game := range games {
+
+		go func(g model.Game) {
+			lock.Lock()
+
+			waitTime := time.Second * 5
+
+			// 如果不是第一局，看上一把是否有托管
+			if g.Current != 1 {
+				tGame, _ := this.GetGame(g.RoomId, g.PlayerId, g.Current-1)
+				if tGame.Auto {
+					waitTime = time.Second * 2
+				}
+			}
+			lock.Unlock()
+			time.Sleep(waitTime)
+			lock.Lock()
+			defer lock.Unlock()
+			// 判断是否还是之前的那一局
+			roomNow, err := this.Get(g.RoomId)
+			if err != nil {
+				return
+			}
+			// 不是之前那一局，或者游戏结束，就退出
+			if room.Current != roomNow.Current || room.Status == enum.GameOver {
+				return
+			}
+
+			game, e := this.GetCurrentGame(g.RoomId, g.PlayerId)
+			if e != nil {
+				err = e
+				return
+			}
+
+			// 庄家不用下注
+			if game.Banker {
+				return
+			}
+
+			// 如果闲家已经下注，返回
+			if game.Score > 0 {
+				return
+			}
+
+			// 自动下注规则，第一局就挂机，那就按照最低倍数下注
+			// 第二局及以后都按照上一局的倍数为准
+			ss := [][]int{{1, 2}, {2, 4}, {3, 6}, {4, 8}, {5, 10}, {10, 20}}
+			s := ss[room.Score]
+			score := s[0]
+			if game.Current > 1 {
+				tGame, _ := this.GetGame(game.RoomId, game.PlayerId, game.Current-1)
+				if tGame.Score > 0 {
+					score = tGame.Score
+				}
+			}
+
+			// 不抢庄并设置为托管
+			if dao.Db().Model(&game).Update(map[string]interface{}{"score": score, "auto": true}).Error != nil {
+				return
+			}
+
+			// 通知玩家，下注信息
+			err = this.SendSetScore(roomId, g.PlayerId, score)
+
+		}(game)
+
+	}
+
+	return
+}
+
+func (this *roomSrv) SendSetScore(roomId, uid uint, score int) (err error) {
+	// 通知所有人有人下注
+	ps := this.Players(roomId)
+	for _, p := range ps {
+		event.Send(p.Uid, "SetScore", roomId, uid, score)
+	}
+
+	games, e := this.GetCurrentGames(roomId)
+	if e != nil {
+		err = e
+		return
+	}
+
+	for _, game := range games {
+		// 有闲家没下注，返回
+		if !game.Banker && game.Score == 0 {
+			return
 		}
-		go func() {
-			time.Sleep(time.Second * 2)
+	}
+
+	// 计算牌型
+	err = this.checkPaixin(roomId)
+	if err != nil {
+		return
+	}
+
+	// 获取牌型字符串
+	gs, e := this.GetCurrentGames(roomId)
+	if e != nil {
+		err = e
+		return
+	}
+
+	pxs := ""
+	for _, v := range gs {
+		pxs += fmt.Sprintf("%v,%v,%v;", v.PlayerId, v.CardType, v.Cards)
+	}
+
+	for _, p := range ps {
+		event.Send(p.Uid, "SetScoreAll", roomId)
+		event.Send(p.Uid, "CardTypes", roomId, pxs[:len(pxs)-1])
+	}
+	go func() {
+		time.Sleep(time.Second * 5)
+		room, e := this.Get(roomId)
+		if e != nil {
+			return
+		}
+
+		if room.Current == room.Count {
+			go func(rid uint) {
+				time.Sleep(time.Second * 5)
+				dao.Db().Delete(&model.Room{}, rid)
+				// 把玩家从房间删除
+				dao.Db().Where("room_id=?", rid).Delete(model.Player{})
+				this.SendGameOver(rid)
+			}(roomId)
+		}
+		if room.Status == enum.GamePlaying {
 			this.GameBegin(roomId)
-		}()
+		}
+	}()
+
+	return
+}
+
+// 计算指定房间，当前牌局每个人的牌型并更新到数据库
+func (this *roomSrv) checkPaixin(roomId uint) (err error) {
+	games, e := this.GetCurrentGames(roomId)
+	if e != nil {
+		err = e
+		return
+	}
+	if len(games) == 0 {
+		err = errors.New("当前房间没有玩家")
+		return
+	}
+
+	for _, g := range games {
+		paixing, cardStr, e := card.GetPaixing(g.Cards)
+		if e != nil {
+			err = e
+			return
+		}
+		if dao.Db().Model(&g).Update(map[string]interface{}{"card_type": paixing, "cards": cardStr}).Error != nil {
+			err = errors.New("更新牌型失败")
+			return
+		}
+	}
+	return
+}
+
+// 选择庄家
+func (this *roomSrv) selectBanker(roomId uint) (uid uint, err error) {
+	games, e := this.GetCurrentGames(roomId)
+	if e != nil {
+		err = e
+		return
+	}
+	if len(games) == 0 {
+		err = errors.New("当前房间没有玩家")
+		return
+	}
+
+	eq := true // 记录是否全部相等
+	var game = games[0]
+	// 选择下注最大的
+	for _, g := range games {
+		if g.Times != game.Times {
+			eq = false
+			if g.Times > game.Times {
+				game = g
+			}
+		}
+	}
+	// 如果都一样大，就随机选一个
+	if eq {
+		rand.Seed(time.Now().Unix())
+		game = games[rand.Intn(len(games))]
+	}
+
+	uid = game.PlayerId
+	// 更新
+	res := dao.Db().Model(&game).Update("banker", true)
+	if res.Error != nil {
+		err = errors.New("选定庄家出错")
+		return
+	}
+	if res.RowsAffected == 0 {
+		err = errors.New("更新庄家信息出错")
+		return
 	}
 	return
 }
@@ -527,8 +791,8 @@ func (this *roomSrv) GetCurrentGame(roomId, uid uint) (game model.Game, err erro
 }
 
 func (this *roomSrv) GetGame(roomId, uid uint, current int) (game model.Game, err error) {
-	dao.Db.Where(&model.Game{RoomId: roomId, PlayerId: uid, Current: current}).First(&game)
-	if game.ID == 0 {
+
+	if dao.Db().Where(&model.Game{RoomId: roomId, PlayerId: uid, Current: current}).First(&game).RecordNotFound() {
 		err = errors.New("获取游戏数据失败")
 		return
 	}
@@ -546,8 +810,9 @@ func (this *roomSrv) GetCurrentGames(roomId uint) (game []model.Game, err error)
 }
 
 func (this *roomSrv) GetGames(roomId uint, current int) (game []model.Game, err error) {
-	dao.Db.Where(&model.Game{RoomId: roomId, Current: current}).Find(&game)
+	if dao.Db().Where(&model.Game{RoomId: roomId, Current: current}).Find(&game).Error != nil {
+		err = errors.New("获取游戏信息失败")
+		return
+	}
 	return
 }
-
-

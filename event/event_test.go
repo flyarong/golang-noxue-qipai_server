@@ -9,3 +9,8 @@ func TestSend(t *testing.T) {
 func TestGet(t *testing.T) {
 	Get(101010)
 }
+
+func TestDoArg(t *testing.T) {
+	str:=doArgs([]interface{}{1,"sss",3,2.3})
+	print(str)
+}

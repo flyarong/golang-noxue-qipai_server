@@ -44,8 +44,12 @@ func room() {
 	// 获取指定用户的纸牌
 	r.GET("/:rid/cards/:uid", roomsCardsFunc)
 
+	// 抢庄
+	r.PUT("/:rid/times/:times", roomSetTimes)
+
 	// 下注
 	r.PUT("/:rid/score/:score", roomsSetScore)
+
 
 	// 解散房间
 	r.DELETE("/:rid", roomsDeleteFunc)
@@ -360,13 +364,34 @@ func roomsCardsFunc(c *gin.Context) {
 	}
 
 	cards := game.Cards
-	if game.Times == 0 {
+	if game.Score == 0 {
 		cs := strings.Split(cards, "|")
 		cs = cs[:4]
 		cards = strings.Join(cs, "|")
 	}
 
 	c.JSON(http.StatusOK, utils.Msg("获取纸牌成功").AddData("cards", cards))
+}
+
+func roomSetTimes(c *gin.Context){
+	rid, err := strconv.Atoi(c.Param("rid"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, utils.Msg("房间编号必须是数字").Code(-1))
+		return
+	}
+	times, err := strconv.Atoi(c.Param("times"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, utils.Msg("抢庄倍数必须是数字").Code(-1))
+		return
+	}
+	info := c.MustGet("user").(*utils.UserInfo)
+
+	err=srv.Room.SetTimes(uint(rid),info.Uid,times)
+	if err!=nil {
+		c.JSON(http.StatusBadRequest, utils.Msg(err.Error()).Code(-1))
+		return
+	}
+	c.JSON(http.StatusOK,utils.Msg("抢庄成功"))
 }
 
 func roomsSetScore(c *gin.Context) {
@@ -387,6 +412,7 @@ func roomsSetScore(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, utils.Msg(err.Error()).Code(-1))
 		return
 	}
+	c.JSON(http.StatusOK,utils.Msg("下注成功"))
 }
 
 func roomsDeleteFunc(c *gin.Context) {

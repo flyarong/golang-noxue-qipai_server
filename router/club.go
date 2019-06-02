@@ -180,7 +180,7 @@ func clubsFunc(c *gin.Context) {
 	var clubsV []clubV
 	for _, v := range srv.Club.MyClubs(info.Uid) {
 		var u model.User
-		dao.Db.First(&u, v.Uid)
+		dao.Db().First(&u, v.Uid)
 		clubsV = append(clubsV, clubV{
 			Id:      v.ID,
 			Score:   v.Score,
@@ -201,7 +201,7 @@ func clubDeleteFunc(c *gin.Context) {
 		return
 	}
 	club.ID = uint(id)
-	dao.Db.Delete(club)
+	dao.Db().Delete(club)
 	c.JSON(http.StatusOK, utils.Msg("解散成功"))
 }
 

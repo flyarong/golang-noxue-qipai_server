@@ -131,14 +131,14 @@ func userResetFunc(c *gin.Context) {
 	}
 
 	var a model.Auth
-	dao.Db.Where(&model.Auth{UserType: reset.UserType, Name: reset.Name}).First(&a)
-	if a.ID == 0 {
+
+	if dao.Db().Where(&model.Auth{UserType: reset.UserType, Name: reset.Name}).First(&a).RecordNotFound() {
 		c.JSON(http.StatusInternalServerError, utils.Msg("账号不存在").Code(-1))
 		return
 	}
 
 	a.Pass = reset.Pass
-	dao.Db.Save(&a)
+	dao.Db().Save(&a)
 
 	c.JSON(http.StatusOK, utils.Msg("密码修改成功"))
 }

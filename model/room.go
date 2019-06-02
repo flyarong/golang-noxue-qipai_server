@@ -64,16 +64,18 @@ type Player struct {
 
 type Game struct {
 	gorm.Model
-	Banker   bool   // 是否是庄家 true表示是庄家
-	PlayerId uint   // 玩家编号
-	RoomId   uint   // 房间编号
-	DeskId   int    // 座位号
-	Times    int    // 下注倍数
-	Special  int    // 特殊牌型加倍
-	Score    int    // 输赢积分，通过底分*庄家倍数*特殊牌型加倍 计算
-	Cards    string // 用户所拥有的牌
-	Current  int    // 这是第几局
-	Auto     bool   // 是否自动托管
+	Banker     bool                    // 是否是庄家 true表示是庄家
+	PlayerId   uint                    // 玩家编号
+	RoomId     uint                    // 房间编号
+	DeskId     int                     // 座位号
+	Score      int                     // 闲家下注
+	Times      int `gorm:"default:-1"` // 抢庄倍数
+	CardType   int                     // 牌类型，记录是牛几
+	Special    int                     // 特殊牌型加倍
+	TotalScore int                     // 输赢积分，通过底分*庄家倍数*特殊牌型加倍 计算
+	Cards      string                  // 用户所拥有的牌
+	Current    int                     // 这是第几局
+	Auto       bool                    // 是否自动托管
 }
 
 type Event struct {
