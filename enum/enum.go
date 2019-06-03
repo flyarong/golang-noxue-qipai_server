@@ -3,8 +3,9 @@ package enum
 type UserType int
 
 const (
-	Mobile UserType = 1
-	WeChat UserType = 2
+	MobilePass UserType = 1 // 手机 密码登录
+	MobileCode UserType = 2 // 手机 验证码登录
+	WeChat     UserType = 3 // 微信登录
 )
 
 // 王癞类型

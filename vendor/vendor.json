@@ -61,12 +61,24 @@
 			"versionExact": "v1.3.0"
 		},
 		{
+			"checksumSHA1": "MduUeJ9gdU6roxJWKBu5kUgOgyc=",
+			"path": "github.com/go-playground/validator",
+			"revision": "884d31b8cad6a1ec877f2400d555924cea03bbea",
+			"revisionTime": "2019-05-23T14:57:40Z"
+		},
+		{
 			"checksumSHA1": "mQWCVVOUSDg86xSUSorx4UlO64A=",
 			"path": "github.com/go-sql-driver/mysql",
 			"revision": "72cd26f257d44c1114970e19afddcd812016007e",
 			"revisionTime": "2018-11-14T12:08:49Z",
 			"version": "v1.4.1",
 			"versionExact": "v1.4.1"
+		},
+		{
+			"checksumSHA1": "Y27Agdpf4FN4HGANJ8cp8+Q6VO4=",
+			"path": "github.com/golang/glog",
+			"revision": "23def4e6c14b4da8ac2ed8007337bc5eb5007998",
+			"revisionTime": "2016-01-25T20:49:56Z"
 		},
 		{
 			"checksumSHA1": "Wp97rIwFg54dNwuCeR9Vslaehtw=",
@@ -125,6 +137,12 @@
 			"path": "github.com/modern-go/reflect2",
 			"revision": "94122c33edd36123c84d5368cfb2b69df93a0ec8",
 			"revisionTime": "2018-07-18T01:23:57Z"
+		},
+		{
+			"checksumSHA1": "lWqx5VMRTWMDUugZun7PC3IKVYU=",
+			"path": "github.com/noxue/zero",
+			"revision": "587198b68c4a0e65ec45355d89dad25ba98610fd",
+			"revisionTime": "2019-01-22T08:48:37Z"
 		},
 		{
 			"checksumSHA1": "J0kszFqb75zaskY/h7CGVtY62bk=",

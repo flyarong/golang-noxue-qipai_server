@@ -92,7 +92,7 @@ func (j *JWT) RefreshToken(tokenString string) (string, error) {
 				// Token is expired
 				return "", errors.New("登录超时，请重新登录") //TokenExpired
 			} else if ve.Errors&jwt.ValidationErrorNotValidYet != 0 {
-				return "", errors.New("令牌尚未激活1") //TokenNotValidYet
+				return "", errors.New("令牌尚未激活") //TokenNotValidYet
 			} else {
 				return "", errors.New("无法处理此令牌") //TokenInvalid
 			}

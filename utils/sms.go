@@ -1,12 +1,17 @@
 package utils
 
 import (
+	"github.com/golang/glog"
 	alisms "github.com/noxue/alisms"
-	"log"
 	"qipai/config"
 )
 
 func SendSms(tplCode, mobile, code string) bool {
+
+	if config.Config.Debug {
+		glog.Infoln("发送的验证码为：",code)
+		return true
+	}
 
 	userInput := &alisms.UserParams{
 		AccessKeyId:  config.Config.Sms.Key,
@@ -20,7 +25,7 @@ func SendSms(tplCode, mobile, code string) bool {
 	ok, msg, err := alisms.SendMessage(userInput)
 	if !ok {
 		// 根据业务进行错误处理
-		log.Println(msg, err)
+		glog.Errorln(msg, err)
 	}
 	return ok
 }

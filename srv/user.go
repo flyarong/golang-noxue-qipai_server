@@ -63,7 +63,7 @@ func (userSrv) Bind(uid uint, auth *model.Auth) (err error) {
 	return
 }
 
-func (this userSrv) Login(auth *model.Auth) (token string, err error) {
+func (this userSrv) Login(auth *model.Auth) (token string,u model.User, err error) {
 	var a model.Auth
 	dao.Db().Where(&model.Auth{UserType: auth.UserType, Name: auth.Name}).First(&a)
 
@@ -77,9 +77,13 @@ func (this userSrv) Login(auth *model.Auth) (token string, err error) {
 		return
 	}
 
-	var u model.User
-	dao.Db().Where(a.UserId).First(&u)
-	if u.ID == 0 {
+
+	res:=dao.Db().Where(a.UserId).First(&u)
+	if res.Error!=nil {
+		err = errors.New("查询用户信息出错")
+		return
+	}
+	if res.RecordNotFound() {
 		err = errors.New("用户信息不存在")
 		return
 	}

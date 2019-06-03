@@ -9,6 +9,7 @@ import (
 var Config Conf
 
 type Conf struct {
+	Debug  bool
 	AppKey string
 	Db     Db
 	Lvdb   string
