@@ -25,8 +25,8 @@ const (
 	ReqCreateRoom int32 = iota + 201
 	ResCreateRoom
 	// 房间列表
-	ReqGetRoomList
-	ResGetRoomList
+	ReqRoomList
+	ResRoomList
 	// 房间信息
 	ReqRoom
 	ResRoom

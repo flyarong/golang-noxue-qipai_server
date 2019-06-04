@@ -2,6 +2,7 @@ package utils
 
 import (
 	"encoding/json"
+	"github.com/golang/glog"
 	"zero"
 )
 
@@ -35,15 +36,18 @@ func (this *msg) ToJson() string {
 	return string(jsonData)
 }
 
-
 func (this *msg) ToBytes() []byte {
 	jsonData, _ := json.Marshal(this.data)
 	return jsonData
 }
 
 // 发送到客户端
-func (this *msg) ToSend(msgID int32,s *zero.Session)(err error){
+func (this *msg) ToSend(msgID int32, s *zero.Session) (err error) {
 	message := zero.NewMessage(msgID, this.ToBytes())
+	if s == nil {
+		glog.Warningln("session为nil指针，发送的消息编号为是：", msgID)
+		return
+	}
 	err = s.GetConn().SendMessage(message)
 	return
 }

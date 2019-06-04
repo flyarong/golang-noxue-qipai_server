@@ -3,12 +3,15 @@ package srv
 import (
 	"errors"
 	"fmt"
+	"github.com/golang/glog"
 	"math/rand"
 	"qipai/dao"
 	"qipai/enum"
 	"qipai/event"
+	"qipai/game"
 	"qipai/model"
 	"qipai/srv/card"
+	"qipai/utils"
 	"sync"
 	"time"
 )
@@ -18,44 +21,114 @@ var Room roomSrv
 type roomSrv struct {
 }
 
-func deleteRoom() {
-	type result struct {
-		ID  int
-		Uid int
-	}
+func deleteAllInvalidRooms() {
+	//type result struct {
+	//	ID  int
+	//	Uid int
+	//}
+	//
+	//var res []result
+	//dao.Db().Raw("select id,uid  from rooms  where deleted_at is null and club_id<>1 and status=0 and now()-created_at>=1000").Scan(&res)
+	//if len(res) > 0 {
+	//	var ids []int
+	//	for _, v := range res {
+	//		ids = append(ids, v.ID)
+	//		if p := game.GetPlayer(v.Uid); p != nil {
+	//			// 通知在线的相关用户
+	//			utils.Msg("房间超过10分钟未开始，自动解散").AddData("id", v.ID).ToSend(game.ResDeleteRoom, p.Session)
+	//		}
+	//	}
+	//	dao.Db().Unscoped().Where("id in (?)", ids).Delete(model.Room{})
+	//	dao.Db().Where("room_id in (?)", ids).Delete(&model.Player{})
+	//}
 
-	go func() {
-		for {
-			time.Sleep(time.Second * 10)
-			var res []result
-			dao.Db().Raw("select id,uid  from rooms  where deleted_at is null and club_id<>1 and status=0 and now()-created_at>1000").Scan(&res)
-			if len(res) > 0 {
-				var ids []int
-				for _, v := range res {
-					ids = append(ids, v.ID)
-					event.Send(uint(v.Uid), event.RoomDelete, v.ID)
-				}
-				dao.Db().Unscoped().Where("id in (?)", ids).Delete(model.Room{})
-				dao.Db().Where("room_id in (?)", ids).Delete(&model.Player{})
-			}
+	var rooms []model.Room
+	res := dao.Db().Find(&rooms)
+	if res.Error != nil {
+		glog.Errorln(res.Error)
+		return
+	}
+	for _, room := range rooms {
+		// 超过10分钟，游戏没开始的房间，并且不是俱乐部房间，自动解散
+		if isRoomExpired(&room) {
+			dao.Db().Unscoped().Delete(&room)
+			sendRoomDelete(room.ID)
+			continue // 继续下一个
 		}
-	}()
+
+		// 主要是处理中途关闭程序，启动后部分房间未到10分钟但未开始的情况
+		if time.Now().Sub(room.CreatedAt) < time.Minute*10 && room.ClubId == 0 && room.Status == enum.GameReady {
+			go func(roomId uint) {
+				// 等待剩余的时间
+				time.Sleep(time.Minute*10 - time.Now().Sub(room.CreatedAt))
+				deleteExpiredRoom(roomId)
+			}(room.ID)
+		}
+
+	}
+}
+
+// 检查是否超时，超时返回true，表示可以删除了。
+func isRoomExpired(room *model.Room) bool{
+	// 超过10分钟，游戏没开始的房间，并且不是俱乐部房间，自动解散
+	return (time.Now().Sub(room.CreatedAt) >= time.Minute*10 && room.ClubId == 0 && room.Status == enum.GameReady )
+}
+
+// 删除过期的房间，并通知客户端
+func deleteExpiredRoom(roomId uint) (err error){
+	var room model.Room
+	res:=dao.Db().Find(&room,roomId)
+	if res.Error != nil {
+		glog.Errorln(res.Error)
+		return
+	}
+	if res.RecordNotFound(){
+		err = errors.New("没有找到房间")
+		return
+	}
+	if isRoomExpired(&room) {
+		dao.Db().Unscoped().Delete(&room)
+		sendRoomDelete(room.ID)
+	}
+	return
+}
+
+func sendRoomDelete(roomId uint) (err error) {
+	var ps []model.Player
+	res := dao.Db().Where(&model.Player{RoomId: roomId}).Find(&ps)
+	if res.Error != nil {
+		err = errors.New(fmt.Sprint("查询房间对应的玩家失败，房间号：%d", roomId))
+		return
+	}
+	for _, v := range ps {
+		if p := game.GetPlayer(int(v.Uid)); p != nil {
+			// 通知在线的相关用户
+			utils.Msg("房间超过10分钟未开始或已经结束，自动解散").AddData("id", roomId).ToSend(game.ResDeleteRoom, p.Session)
+		}
+		dao.Db().Unscoped().Delete(&v)
+	}
+	return
 }
 
 func (this *roomSrv) Create(room *model.Room) (err error) {
-	dao.Db().Save(room)
-	if room.ID == 0 {
+	res := dao.Db().Save(room)
+	if res.Error != nil || res.RowsAffected == 0 {
 		err = errors.New("房间添加失败，请联系管理员")
 		return
 	}
-	event.Send(room.Uid, event.RoomCreate, room.ID)
+
+	go func() {
+		time.Sleep(time.Minute*10 + time.Second)
+		deleteAllInvalidRooms()
+	}()
+
 	return
 }
 
 func (roomSrv) Get(roomId uint) (room model.Room, err error) {
 
 	if dao.Db().First(&room, roomId).RecordNotFound() {
-		err = errors.New("该房间不存在，或已解散")
+		err = errors.New("该房间不存在，或游戏已结束")
 		return
 	}
 	return
@@ -236,7 +309,7 @@ func (this *roomSrv) Exit(rid, uid uint) (err error) {
 
 	this.SendExit(rid, uid)
 
-	if dao.Db().Model(model.Player{}).Where("id=?", player.ID).Update(map[string]interface{}{"desk_id": 0, "joined_at": nil}).Error !=nil{
+	if dao.Db().Model(model.Player{}).Where("id=?", player.ID).Update(map[string]interface{}{"desk_id": 0, "joined_at": nil}).Error != nil {
 		err = errors.New("更新退出房间数据失败")
 	}
 	return

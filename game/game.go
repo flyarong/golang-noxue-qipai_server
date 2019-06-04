@@ -17,7 +17,7 @@ func init() {
 type Player struct {
 	Id      uint          `json:"-" gorm:"primary_key"`
 	Uid     int           `json:"id" sql:"index"`
-	Name    string        `json:"name"`
+	Nick    string        `json:"nick"`
 	Session *zero.Session `json:"-" gorm:"-"`
 }
 

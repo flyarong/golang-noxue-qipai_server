@@ -46,8 +46,8 @@ func login(s *zero.Session, msg *zero.Message) {
 	}
 
 	game.AddPlayer(s,&game.Player{
-		Uid:     int(user.ID),
-		Name:    user.Nick,
+		Uid:  int(user.ID),
+		Nick: user.Nick,
 	})
 
 	resLogin.AddData("token", token)
@@ -169,8 +169,8 @@ func loginByToken(s *zero.Session, msg *zero.Message) {
 	}
 
 	game.AddPlayer(s,&game.Player{
-		Uid:     int(user.Uid),
-		Name:    user.Nick,
+		Uid:  int(user.Uid),
+		Nick: user.Nick,
 	})
 
 	newToken, err := j.RefreshToken(data.Token)

@@ -8,7 +8,7 @@ import (
 	"zero"
 )
 
-type handler func(*zero.Session, *zero.Message)
+type handler func(s *zero.Session, msg *zero.Message)
 
 type handlerWrap struct {
 	needAuth bool // 记录 是否需要授权后才能执行handler

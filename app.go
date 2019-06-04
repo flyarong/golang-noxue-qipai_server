@@ -5,7 +5,6 @@ import (
 	"github.com/golang/glog"
 	"qipai/game"
 	_ "qipai/router"
-	"time"
 	"zero"
 )
 
@@ -24,7 +23,7 @@ func main() {
 		glog.Fatal(err)
 	}
 
-	ss.SetHeartBeat(5*time.Second, 10*time.Second)
+	//ss.SetHeartBeat(5*time.Second, 10*time.Second)
 
 	ss.RegMessageHandler(game.HandleMessage)
 	ss.RegConnectHandler(game.HandleConnect)
