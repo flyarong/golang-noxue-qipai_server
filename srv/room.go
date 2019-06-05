@@ -35,7 +35,7 @@ func deleteAllInvalidRooms() {
 	//		ids = append(ids, v.ID)
 	//		if p := game.GetPlayer(v.Uid); p != nil {
 	//			// 通知在线的相关用户
-	//			utils.Msg("房间超过10分钟未开始，自动解散").AddData("id", v.ID).ToSend(game.ResDeleteRoom, p.Session)
+	//			utils.Msg("房间超过10分钟未开始，自动解散").AddData("id", v.ID).Send(game.ResDeleteRoom, p.Session)
 	//		}
 	//	}
 	//	dao.Db().Unscoped().Where("id in (?)", ids).Delete(model.Room{})
@@ -103,7 +103,7 @@ func sendRoomDelete(roomId uint) (err error) {
 	for _, v := range ps {
 		if p := game.GetPlayer(int(v.Uid)); p != nil {
 			// 通知在线的相关用户
-			utils.Msg("房间超过10分钟未开始或已经结束，自动解散").AddData("id", roomId).ToSend(game.ResDeleteRoom, p.Session)
+			utils.Msg("房间超过10分钟未开始或已经结束，自动解散").AddData("id", roomId).Send(game.ResDeleteRoom, p.Session)
 		}
 		dao.Db().Unscoped().Delete(&v)
 	}
@@ -307,11 +307,11 @@ func (this *roomSrv) Exit(rid, uid uint) (err error) {
 		return
 	}
 
-	this.SendExit(rid, uid)
-
 	if dao.Db().Model(model.Player{}).Where("id=?", player.ID).Update(map[string]interface{}{"desk_id": 0, "joined_at": nil}).Error != nil {
 		err = errors.New("更新退出房间数据失败")
 	}
+
+	this.SendExit(rid, uid)
 	return
 }
 
@@ -319,7 +319,11 @@ func (this *roomSrv) SendExit(rid, uid uint) {
 	// 通知其他客户端玩家，我退出了
 	ps := this.PlayersSitDown(rid)
 	for _, p := range ps {
-		event.Send(p.Uid, event.RoomExit, rid, uid)
+		pp:=game.GetPlayer(int(p.Uid))
+		if pp == nil {
+			continue
+		}
+		utils.Msg("").AddData("roomId",rid).AddData("uid",uid).Send(game.ResLeaveRoom, pp.Session)
 	}
 }
 

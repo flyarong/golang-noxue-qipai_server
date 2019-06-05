@@ -35,6 +35,7 @@ func AddPlayer(s *zero.Session, p *Player) {
 		dao.Db().Delete(Player{}, "uid=?", p.Uid) // 用户重新上线，就从离线表中删除他
 		s.SetSetting("user", &player)
 		player.Session = s
+		p = &player
 	} else {
 		p.Session = s
 		p.Session.SetSetting("user", p)

@@ -47,7 +47,7 @@ func HandleMessage(s *zero.Session, msg *zero.Message) {
 	}
 	// 需要登录 并且没登录，就提示错误
 	if handler.needAuth && !IsLogin(s) {
-		utils.Msg("").Code(-1).ToSend(NoPermission, s)
+		utils.Msg("").Code(-1).Send(NoPermission, s)
 		return
 	}
 	handler.handler(s, msg)

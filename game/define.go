@@ -11,8 +11,8 @@ const (
 	ResReset         // 响应重置密码结果
 	ReqBind          // 账号绑定
 	ResBind          // 响应绑定结果
-	ReqGetUserInfo   // 获取用户信息
-	ResGetUserInfo   // 响应用户信息
+	ReqUserInfo      // 获取用户信息
+	ResUserInfo      // 响应用户信息
 	ReqCode          // 请求手机验证码
 	ResCode          // 返回验证码发送结果
 	ReqLoginByToken  // 通过token登录
@@ -36,6 +36,8 @@ const (
 
 	// 广播进入房间
 	BroadcastJoinRoom
+	// 广播坐下
+	BroadcastSitRoom
 
 	// 坐下
 	ReqSit

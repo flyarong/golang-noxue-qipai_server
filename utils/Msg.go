@@ -42,7 +42,7 @@ func (this *msg) ToBytes() []byte {
 }
 
 // 发送到客户端
-func (this *msg) ToSend(msgID int32, s *zero.Session) (err error) {
+func (this *msg) Send(msgID int32, s *zero.Session) (err error) {
 	message := zero.NewMessage(msgID, this.ToBytes())
 	if s == nil {
 		glog.Warningln("session为nil指针，发送的消息编号为是：", msgID)

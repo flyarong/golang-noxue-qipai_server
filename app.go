@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"github.com/golang/glog"
+	"net/http"
+	"os"
 	"qipai/game"
 	_ "qipai/router"
 	"zero"
@@ -16,6 +18,15 @@ func init() {
 }
 
 func main() {
+	go func() {
+		os.Mkdir("static", 0777)
+
+		http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+		err := http.ListenAndServe(":9988", nil)
+		if err!=nil{
+			glog.Fatalln(err)
+		}
+	}()
 
 	host := ":8899"
 	ss, err := zero.NewSocketService(host)

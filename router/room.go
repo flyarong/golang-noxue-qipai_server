@@ -2,6 +2,7 @@ package router
 
 import (
 	"encoding/json"
+	"github.com/golang/glog"
 	"qipai/domain"
 	"qipai/enum"
 	"qipai/game"
@@ -16,6 +17,103 @@ func init() {
 	game.AddAuthHandler(game.ReqRoomList, roomList)
 	game.AddAuthHandler(game.ReqRoom, room)         // 请求房间信息
 	game.AddAuthHandler(game.ReqJoinRoom, joinRoom) // 请求加入房间
+	game.AddAuthHandler(game.ReqSit, sit)
+	game.AddAuthHandler(game.ReqLeaveRoom, leaveRoom)
+}
+
+func leaveRoom(s *zero.Session, msg *zero.Message) {
+	type reqData struct {
+		Id uint `json:"id"`
+	}
+
+	res := utils.Msg("")
+	defer func() {
+		if res == nil {
+			return
+		}
+		res.Send(game.ResLeaveRoom, s)
+	}()
+
+	var data reqData
+	err := json.Unmarshal(msg.GetData(), &data)
+	if err != nil {
+		res = utils.Msg(err.Error()).Code(-1)
+		return
+	}
+
+	p := game.GetPlayerFromSession(s)
+
+	err = srv.Room.Exit(data.Id, uint(p.Uid))
+	if err != nil {
+		res = utils.Msg(err.Error()).Code(-1)
+		return
+	}
+}
+
+func sit(s *zero.Session, msg *zero.Message) {
+	type reqData struct {
+		Id uint `json:"id"`
+	}
+
+	res := utils.Msg("")
+	defer func() {
+		if res == nil {
+			return
+		}
+		res.Send(game.ResSit, s)
+	}()
+
+	var data reqData
+	err := json.Unmarshal(msg.GetData(), &data)
+	if err != nil {
+		res = utils.Msg(err.Error()).Code(-1)
+		return
+	}
+
+	p := game.GetPlayerFromSession(s)
+
+	roomId, deskId, e := srv.Room.SitDown(data.Id, uint(p.Uid))
+	if e != nil {
+		res = utils.Msg(e.Error()).Code(-1).AddData("roomId", roomId)
+		return
+	}
+	res = utils.Msg("").AddData("deskId", deskId)
+
+	// 获取当前房间所有玩家
+	type playerV struct {
+		Uid    uint `json:"uid"`    // 用户编号
+		DeskId int  `json:"deskId"` // 座位号
+	}
+
+	players := srv.Room.PlayersSitDown(data.Id)
+	var pvs []playerV
+	for _, v := range players {
+		var pv playerV
+		if !utils.Copy(v, &pv) {
+			res = utils.Msg("玩家数组赋值出错，请联系管理员").Code(-1)
+			return
+		}
+		pvs = append(pvs, pv)
+	}
+
+	// 通知房间中其他坐下的玩家，我坐下了
+	for _, v := range pvs {
+		// 不用通知自己
+		if v.Uid == uint(p.Uid) {
+			continue
+		}
+		otherPlayer := game.GetPlayer(int(v.Uid))
+		if otherPlayer == nil {
+			glog.Errorln("通知其他用户有用户坐下失败")
+			continue
+		}
+		utils.Msg("").
+			AddData("roomId", data.Id).
+			AddData("uid", p.Uid).
+			AddData("deskId", deskId).Send(game.BroadcastSitRoom, otherPlayer.Session)
+	}
+
+	res.AddData("players", pvs)
 }
 
 func joinRoom(s *zero.Session, msg *zero.Message) {
@@ -29,7 +127,7 @@ func joinRoom(s *zero.Session, msg *zero.Message) {
 		if res == nil {
 			return
 		}
-		res.ToSend(game.ResJoinRoom, s)
+		res.Send(game.ResJoinRoom, s)
 	}()
 
 	var data reqData
@@ -45,12 +143,30 @@ func joinRoom(s *zero.Session, msg *zero.Message) {
 	if err != nil {
 		if err.Error() == "该房间不存在，或已解散" {
 			res = nil
-			utils.Msg("房间超过10分钟未开始或已经结束，自动解散").AddData("id", data.Id).ToSend(game.ResDeleteRoom, s)
+			utils.Msg("房间超过10分钟未开始或已经结束，自动解散").AddData("id", data.Id).Send(game.ResDeleteRoom, s)
 			return
 		}
 		res = utils.Msg(err.Error()).Code(-1)
 		return
 	}
+
+	// 获取当前房间所有玩家
+	type playerV struct {
+		Uid    uint `json:"uid"`    // 用户编号
+		DeskId int  `json:"deskId"` // 座位号
+	}
+
+	players := srv.Room.PlayersSitDown(data.Id)
+	var pvs []playerV
+	for _, v := range players {
+		var pv playerV
+		if !utils.Copy(v, &pv) {
+			res = utils.Msg("玩家数组赋值出错，请联系管理员").Code(-1)
+			return
+		}
+		pvs = append(pvs, pv)
+	}
+	res.AddData("players", pvs)
 }
 
 func room(s *zero.Session, msg *zero.Message) {
@@ -74,7 +190,7 @@ func room(s *zero.Session, msg *zero.Message) {
 		if res == nil {
 			return
 		}
-		res.ToSend(game.ResRoom, s)
+		res.Send(game.ResRoom, s)
 	}()
 
 	var data reqRoom
@@ -88,7 +204,7 @@ func room(s *zero.Session, msg *zero.Message) {
 	if err != nil {
 		if err.Error() == "该房间不存在，或游戏已结束" {
 			res = nil
-			utils.Msg("房间超过10分钟未开始或已经结束，自动解散").AddData("id", data.Id).ToSend(game.ResDeleteRoom, s)
+			utils.Msg("房间超过10分钟未开始或已经结束，自动解散").AddData("id", data.Id).Send(game.ResDeleteRoom, s)
 			return
 		}
 		res = utils.Msg(err.Error()).Code(-1)
@@ -106,7 +222,7 @@ func room(s *zero.Session, msg *zero.Message) {
 func createRoom(s *zero.Session, msg *zero.Message) {
 	resMsg := utils.Msg("")
 	defer func() {
-		resMsg.ToSend(game.ResCreateRoom, s)
+		resMsg.Send(game.ResCreateRoom, s)
 	}()
 
 	var form domain.ReqCreateRoom
@@ -184,7 +300,7 @@ func roomList(s *zero.Session, msg *zero.Message) {
 	resMsg := utils.Msg("")
 
 	defer func() {
-		resMsg.ToSend(game.ResRoomList, s)
+		resMsg.Send(game.ResRoomList, s)
 	}()
 
 	p := game.GetPlayerFromSession(s)
