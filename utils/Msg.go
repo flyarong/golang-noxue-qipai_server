@@ -6,12 +6,12 @@ import (
 	"zero"
 )
 
-type msg struct {
+type Message struct {
 	data map[string]interface{} `json:"data"`
 }
 
-func Msg(msgStr string) *msg {
-	m := &msg{
+func Msg(msgStr string) *Message {
+	m := &Message{
 		data: make(map[string]interface{}),
 	}
 	m.data["code"] = 0
@@ -21,28 +21,28 @@ func Msg(msgStr string) *msg {
 	return m
 }
 
-func (this *msg) Code(code int) *msg {
+func (this *Message) Code(code int) *Message {
 	this.data["code"] = code
 	return this
 }
 
-func (this *msg) AddData(key string, data interface{}) *msg {
+func (this *Message) AddData(key string, data interface{}) *Message {
 	this.data[key] = data
 	return this
 }
 
-func (this *msg) ToJson() string {
+func (this *Message) ToJson() string {
 	jsonData, _ := json.Marshal(this.data)
 	return string(jsonData)
 }
 
-func (this *msg) ToBytes() []byte {
+func (this *Message) ToBytes() []byte {
 	jsonData, _ := json.Marshal(this.data)
 	return jsonData
 }
 
 // 发送到客户端
-func (this *msg) Send(msgID int32, s *zero.Session) (err error) {
+func (this *Message) Send(msgID int32, s *zero.Session) (err error) {
 	message := zero.NewMessage(msgID, this.ToBytes())
 	if s == nil {
 		glog.Warningln("session为nil指针，发送的消息编号为是：", msgID)

@@ -3,6 +3,7 @@ package router
 import (
 	"encoding/json"
 	"github.com/golang/glog"
+	"qipai/dao"
 	"qipai/domain"
 	"qipai/enum"
 	"qipai/game"
@@ -19,6 +20,37 @@ func init() {
 	game.AddAuthHandler(game.ReqJoinRoom, joinRoom) // 请求加入房间
 	game.AddAuthHandler(game.ReqSit, sit)
 	game.AddAuthHandler(game.ReqLeaveRoom, leaveRoom)
+	game.AddAuthHandler(game.ReqDeleteRoom, deleteRoom)
+}
+
+func deleteRoom(s *zero.Session, msg *zero.Message) {
+	type reqData struct {
+		Id uint `json:"id"`
+	}
+
+	res := utils.Msg("")
+	res = nil
+	defer func() {
+		if res == nil {
+			return
+		}
+		res.Send(game.ResDeleteRoom, s)
+	}()
+
+	var data reqData
+	err := json.Unmarshal(msg.GetData(), &data)
+	if err != nil {
+		res = utils.Msg(err.Error()).Code(-1)
+		return
+	}
+
+	p := game.GetPlayerFromSession(s)
+
+	err = srv.Room.Delete(data.Id, uint(p.Uid))
+	if err != nil {
+		res = utils.Msg(err.Error()).Code(-1)
+		return
+	}
 }
 
 func leaveRoom(s *zero.Session, msg *zero.Message) {
@@ -85,7 +117,7 @@ func sit(s *zero.Session, msg *zero.Message) {
 		DeskId int  `json:"deskId"` // 座位号
 	}
 
-	players := srv.Room.PlayersSitDown(data.Id)
+	players := dao.Room.PlayersSitDown(data.Id)
 	var pvs []playerV
 	for _, v := range players {
 		var pv playerV
@@ -156,7 +188,7 @@ func joinRoom(s *zero.Session, msg *zero.Message) {
 		DeskId int  `json:"deskId"` // 座位号
 	}
 
-	players := srv.Room.PlayersSitDown(data.Id)
+	players := dao.Room.PlayersSitDown(data.Id)
 	var pvs []playerV
 	for _, v := range players {
 		var pv playerV
@@ -200,7 +232,7 @@ func room(s *zero.Session, msg *zero.Message) {
 		return
 	}
 
-	room, err := srv.Room.Get(data.Id)
+	room, err := dao.Room.Get(data.Id)
 	if err != nil {
 		if err.Error() == "该房间不存在，或游戏已结束" {
 			res = nil
