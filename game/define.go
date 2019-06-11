@@ -54,23 +54,16 @@ const (
 // 游戏相关
 const (
 	// 开始游戏
-	ReqGameStart int32 = 301
-	ResGameStart int32 = 302
-	// 发牌，一张一张发
-	PutCard int32 = 303
-
-	// 获取指定用户的纸牌
-	ReqUserCards int32 = 304
-	ResUserCards int32 = 305
-
-	// 抢庄
-	ReqTimes       int32 = 306
-	BroadcastTimes int32 = 307
-	// 广播谁是庄家
-	BroadcastBanker int32 = 308
-
-	// 下注
-	ReqSetScore int32 = 309
-	// 广播下注的大小
-	BroadcastSetScore = 310
+	ReqGameStart int32 = iota + 301
+	ResGameStart
+	ReqSetTimes  // 抢庄
+	BroadcastTimes
+	BroadcastBanker       // 广播谁是庄家
+	ReqSetScore           // 下注
+	BroadcastScore        // 广播下注的大小
+	BroadcastShowCard     // 广播看牌，下注完毕，可以看自己的牌
+	BroadcastCompareCard  // 比牌，返回所有人牌型及大小输赢积分，前端展示比牌结果
+	BroadcastGameOver     // 游戏结束
+	ReqGameResult         // 请求游戏战绩
+	ResGameResult         // 返回游戏战绩
 )

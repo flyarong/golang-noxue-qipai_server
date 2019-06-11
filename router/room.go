@@ -80,6 +80,7 @@ func leaveRoom(s *zero.Session, msg *zero.Message) {
 		res = utils.Msg(err.Error()).Code(-1)
 		return
 	}
+	res = nil
 }
 
 func sit(s *zero.Session, msg *zero.Message) {
@@ -145,7 +146,7 @@ func sit(s *zero.Session, msg *zero.Message) {
 			AddData("deskId", deskId).Send(game.BroadcastSitRoom, otherPlayer.Session)
 	}
 
-	res.AddData("players", pvs)
+	res.AddData("uid", p.Uid).AddData("players", pvs)
 }
 
 func joinRoom(s *zero.Session, msg *zero.Message) {
@@ -175,7 +176,7 @@ func joinRoom(s *zero.Session, msg *zero.Message) {
 	if err != nil {
 		if err.Error() == "该房间不存在，或已解散" {
 			res = nil
-			utils.Msg("房间超过10分钟未开始或已经结束，自动解散").AddData("id", data.Id).Send(game.ResDeleteRoom, s)
+			utils.Msg("房间超过10分钟未开始或已经结束，自动解散").AddData("roomId", data.Id).Send(game.ResDeleteRoom, s)
 			return
 		}
 		res = utils.Msg(err.Error()).Code(-1)

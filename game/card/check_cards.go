@@ -41,6 +41,7 @@ func str2Cards(cardStr string) (cards []*Card, err error) {
 炸弹之间大小比较：取炸弹牌比较大小。
 五小牛牌型比较：庄吃闲。
  */
+// 返回值，-1 第一个牌小于第二个牌，0 牌型相等（庄吃闲的情况，如五小牛）,1 第一个牌大于第二个牌
 func CmpCards(cardsStr1, cardsStr2 string) (n int, err error) {
 	cards1, e := str2Cards(cardsStr1)
 	if e != nil {
@@ -65,36 +66,42 @@ func CmpCards(cardsStr1, cardsStr2 string) (n int, err error) {
 		return
 	}
 
+	// 都是五小牛的情况
+	if px1 == DouniuType_Wuxiao {
+		n = 0
+		return
+	}
+
 	// 取最大的牌
 	maxCard1 := cards1[0]
 	maxCard2 := cards1[0]
 	for i := 1; i < len(cards1); i++ {
-		if cards1[i].CardNo > maxCard1.CardNo { // 点数大
+		if cards1[i].GetValue() > maxCard1.GetValue() { // 点数大
 			maxCard1 = cards1[i]
-		} else if cards1[i].CardNo == maxCard1.CardNo && cards1[i].CardType > maxCard1.CardType { // 牌型大
+		} else if cards1[i].GetValue() == maxCard1.GetValue() && cards1[i].CardType > maxCard1.CardType { // 牌型大
 			maxCard1 = cards1[i]
 		}
 
-		if cards2[i].CardNo > maxCard2.CardNo { // 点数大
+		if cards2[i].GetValue() > maxCard2.GetValue() { // 点数大
 			maxCard2 = cards2[i]
-		} else if cards2[i].CardNo == maxCard2.CardNo && cards2[i].CardType > maxCard2.CardType { // 牌型大
+		} else if cards2[i].GetValue() == maxCard2.GetValue() && cards2[i].CardType > maxCard2.CardType { // 牌型大
 			maxCard2 = cards2[i]
 		}
 	}
 
 	// 点数比较大小
-	if maxCard1.CardNo > maxCard2.CardNo {
-		n=1
+	if maxCard1.GetValue() > maxCard2.GetValue() {
+		n = 1
 		return
-	} else if maxCard1.CardNo < maxCard2.CardNo {
-		n=-1
+	} else if maxCard1.GetValue() < maxCard2.GetValue() {
+		n = -1
 		return
 	}
 
 	// 点数一样，比花色，花色不可能一样，所以不是大，就是小，我们默认第一个牌小
-	n=-1
+	n = -1
 	if maxCard1.CardType > maxCard2.CardType {
-		n=1
+		n = 1
 	}
 	return
 }

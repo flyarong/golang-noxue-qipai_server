@@ -87,7 +87,7 @@ func (me *gamesType) GameOver(roomId uint) (err error) {
 	me.lock.Lock()
 	defer me.lock.Unlock()
 	_, ok := me.Games[roomId]
-	if ok {
+	if !ok {
 		err = errors.New("该房间没有创建游戏，无须结束")
 		return
 	}
@@ -107,16 +107,16 @@ func (me *Game) SetTimes(uid uint, times int, auto bool) {
 	me.Fsm.Do(SetTimesAction, me.RoomId, uid, times, auto)
 }
 
-func (me *Game) SetScore(uid uint, score int) {
+func (me *Game) SetScore(uid uint, score int, auto bool) {
 	me.lock.Lock()
 	defer me.lock.Unlock()
-	me.Fsm.Do(SetScoreAction, me.RoomId, uid, score)
+	me.Fsm.Do(SetScoreAction, me.RoomId, uid, score, auto)
 }
 
-func (me *Game) ShowCard(uid uint) {
+func (me *Game) ShowCard() {
 	me.lock.Lock()
 	defer me.lock.Unlock()
-	me.Fsm.Do(ShowCardAction, me.RoomId, uid)
+	me.Fsm.Do(ShowCardAction, me.RoomId)
 }
 
 // 比牌

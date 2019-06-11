@@ -12,8 +12,8 @@ type roomDao struct {
 }
 
 func (roomDao) Get(roomId uint) (room model.Room, err error) {
-	if Db().First(&room, roomId).RecordNotFound() {
-		err = errors.New("该房间不存在，或游戏已结束")
+	if ret := Db().First(&room, roomId); ret.Error != nil || ret.RecordNotFound() {
+		err = errors.New("该房间不存在")
 		return
 	}
 	return

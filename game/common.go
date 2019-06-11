@@ -14,10 +14,10 @@ import (
 )
 
 // 发送信息给指定房间的所有坐下的玩家
-func SendToAllPlayers(msg *utils.Message, msgId int32,roomId uint) {
+func SendToAllPlayers(msg *utils.Message, msgId int32, roomId uint) {
 	ps := dao.Room.PlayersSitDown(roomId)
 	for _, p := range ps {
-		pp :=  GetPlayer(int(p.Uid))
+		pp := GetPlayer(int(p.Uid))
 		if pp == nil {
 			continue
 		}
@@ -30,7 +30,7 @@ func SendToAllPlayers(msg *utils.Message, msgId int32,roomId uint) {
 }
 
 // 发送消息
-func SendMessage(msg *utils.Message,msgId int32,s *zero.Session)(err error){
+func SendMessage(msg *utils.Message, msgId int32, s *zero.Session) (err error) {
 	message := zero.NewMessage(msgId, msg.ToBytes())
 	if s == nil {
 		glog.Warningln("session为nil指针，发送的消息编号为是：", msgId)
@@ -52,13 +52,6 @@ func DealCards(roomId uint) (err error) {
 		return
 	}
 
-	// 如果当前已经是最大局数，就不发牌了，提示gameover
-	if room.Status == enum.GamePlaying && room.Current >= room.Count {
-		room.Status = enum.GameOver
-		dao.Db().Save(&room)
-		err = errors.New("游戏已经结束")
-		return
-	}
 
 	// 更新当前局数
 	dao.Db().Model(&room).Update(&model.Room{Current: room.Current + 1})

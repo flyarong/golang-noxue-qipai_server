@@ -46,20 +46,20 @@ func deleteAllInvalidRooms() {
 }
 
 // 检查是否超时，超时返回true，表示可以删除了。
-func isRoomExpired(room *model.Room) bool{
+func isRoomExpired(room *model.Room) bool {
 	// 超过10分钟，游戏没开始的房间，并且不是俱乐部房间，自动解散
-	return (time.Now().Sub(room.CreatedAt) >= time.Minute*10 && room.ClubId == 0 && room.Status == enum.GameReady )
+	return (time.Now().Sub(room.CreatedAt) >= time.Minute*10 && room.ClubId == 0 && room.Status == enum.GameReady)
 }
 
 // 删除过期的房间，并通知客户端
-func deleteExpiredRoom(roomId uint) (err error){
+func deleteExpiredRoom(roomId uint) (err error) {
 	var room model.Room
-	res:=dao.Db().Find(&room,roomId)
+	res := dao.Db().Find(&room, roomId)
 	if res.Error != nil {
 		glog.Errorln(res.Error)
 		return
 	}
-	if res.RecordNotFound(){
+	if res.RecordNotFound() {
 		err = errors.New("没有找到房间")
 		return
 	}
@@ -85,6 +85,7 @@ func deletePlayersInRoom(roomId uint) (err error) {
 		}
 		dao.Db().Unscoped().Delete(&v)
 	}
+	dao.Db().Unscoped().Delete(model.Player{}, "room_id=?", roomId)
 	return
 }
 
@@ -96,39 +97,36 @@ func (this *roomSrv) Create(room *model.Room) (err error) {
 	}
 
 	go func() {
-		time.Sleep(time.Minute*10)
+		time.Sleep(time.Minute * 10)
 		deleteAllInvalidRooms()
 	}()
 
 	return
 }
 
-
-
-
 /**
 删除房间，并通知房间内的人
  */
-func (this *roomSrv) Delete(roomId,uid uint) (err error) {
+func (this *roomSrv) Delete(roomId, uid uint) (err error) {
 
-	room,e:=dao.Room.Get(roomId)
-	if e!=nil{
+	room, e := dao.Room.Get(roomId)
+	if e != nil {
 		err = e
 		return
 	}
 
-	if room.Uid != uid{
+	if room.Uid != uid {
 		err = errors.New("您不是该房间的房主，无权解散")
 		return
 	}
 
 	if room.Status != 0 {
-		err =  errors.New("游戏已开始，无法删除房间")
+		err = errors.New("游戏已开始，无法删除房间")
 		return
 	}
 
 	err = dao.Room.Delete(roomId)
-	if err!=nil{
+	if err != nil {
 		return
 	}
 
@@ -141,8 +139,6 @@ func (roomSrv) MyRooms(uid uint) (rooms []model.Room) {
 	dao.Db().Raw("select r.* from rooms r join  players p on p.room_id=r.id where r.`deleted_at` IS NULL and p.uid=?", uid).Scan(&rooms)
 	return
 }
-
-
 
 func (this *roomSrv) SitDown(rid, uid uint) (roomId uint, deskId int, err error) {
 	var room model.Room
@@ -162,7 +158,7 @@ func (this *roomSrv) SitDown(rid, uid uint) (roomId uint, deskId int, err error)
 
 	// 获取当前玩家座位信息
 	var player model.Player
-	player, err = this.Player(rid, uid)
+	player, err = dao.Game.Player(rid, uid)
 	if err != nil {
 		return
 	}
@@ -207,9 +203,15 @@ func (this *roomSrv) SitDown(rid, uid uint) (roomId uint, deskId int, err error)
 
 func (this *roomSrv) Join(rid, uid uint, nick string) (err error) {
 
-	// 检查房间号是否存在
-	if !dao.Room.Exists(rid) {
+	room, e := dao.Room.Get(rid)
+	if e != nil {
+		glog.Error(e)
 		err = errors.New("该房间不存在，或已解散")
+		return
+	}
+	// 游戏中无法加入,防止别人扫描哪些房间存在，游戏中的房间和不存在的提示信息一样
+	if room.Status == enum.GamePlaying{
+		err = errors.New("该房间不存在")
 		return
 	}
 
@@ -237,15 +239,15 @@ func (this *roomSrv) Join(rid, uid uint, nick string) (err error) {
  */
 func (this *roomSrv) Exit(rid, uid uint) (err error) {
 
-	player, e := this.Player(rid, uid)
-	if e != nil {
-		// 房间被解散，也可以成功退出
-		if e.Error() == "用户未进入当前房间，如果已进入，可以尝试退出房间重新进入" {
-			return
+	defer func() {
+		if err == nil {
+			this.SendExit(rid, uid)
+			if ret := dao.Db().Model(model.Player{}).Where("id=?", uid).Update(map[string]interface{}{"desk_id": 0, "joined_at": nil}); ret.Error != nil {
+				glog.Error(ret.Error)
+				return
+			}
 		}
-		err = e
-		return
-	}
+	}()
 
 	// 游戏开始后无法退出
 	room, e := dao.Room.Get(rid)
@@ -258,16 +260,10 @@ func (this *roomSrv) Exit(rid, uid uint) (err error) {
 		return
 	}
 
-	if dao.Db().Model(model.Player{}).Where("id=?", player.ID).Update(map[string]interface{}{"desk_id": 0, "joined_at": nil}).Error != nil {
-		err = errors.New("更新退出房间数据失败")
-	}
-
-	this.SendExit(rid, uid)
 	return
 }
 
 func (this *roomSrv) SendExit(rid, uid uint) {
 	// 通知其他客户端玩家，我退出了
-	game.SendToAllPlayers(utils.Msg("").AddData("roomId",rid).AddData("uid",uid),game.ResLeaveRoom,rid)
+	game.SendToAllPlayers(utils.Msg("").AddData("roomId", rid).AddData("uid", uid), game.ResLeaveRoom, rid)
 }
-

@@ -23,7 +23,11 @@ func StateSelectBanker(action fsm.ActionType, args ...interface{}) (nextState fs
 		var auto bool
 
 		res := utils.Msg("")
+		alreadySet := false // 是否已经抢庄
 		defer func() {
+			if alreadySet { // 已经抢庄就直接退出，不用再次通知
+				return
+			}
 			if res == nil {
 				res = utils.Msg("").AddData("game", &model.Game{
 					PlayerId: uid,
@@ -36,7 +40,7 @@ func StateSelectBanker(action fsm.ActionType, args ...interface{}) (nextState fs
 			}
 			p := GetPlayer(int(uid))
 			if p == nil {
-				glog.V(1).Infoln("发送抢庄信息失败，玩家：", uid, "不在线")
+				glog.V(1).Infoln("玩家：", uid, "不在线，发送抢庄信息失败")
 				return
 			}
 			res.Send(BroadcastTimes, p.Session)
@@ -53,11 +57,14 @@ func StateSelectBanker(action fsm.ActionType, args ...interface{}) (nextState fs
 			return
 		}
 		// 抢庄
-		if dao.Db().Model(&model.Game{}).Where("player_id=? and times = -1", uid).Update(map[string]interface{}{"times": times, "auto": auto}).Error != nil {
+		ret := dao.Db().Model(&model.Game{}).Where("player_id=? and times = -1", uid).Update(map[string]interface{}{"times": times, "auto": auto})
+		if ret.Error != nil {
 			res = utils.Msg("更新下注信息失败").Code(-1)
 			return
 		}
-
+		if ret.RowsAffected == 0 { // 如果没有更新到记录，那说明已经抢庄了
+			alreadySet = true
+		}
 		// 判断是否都抢庄
 		games, err := dao.Game.GetGames(roomId, room.Current)
 		if err != nil {
@@ -93,6 +100,33 @@ func StateSelectBanker(action fsm.ActionType, args ...interface{}) (nextState fs
 				})
 				SendToAllPlayers(res, BroadcastBanker, roomId)
 			}()
+
+			// 闲家定时下注
+			for _, v := range games {
+				if v.PlayerId == bankerUid { // 庄家不用下注
+					continue
+				}
+
+				go func(g model.Game) {
+
+					g1, e := Games.Get(g.RoomId)
+					if e != nil {
+						glog.Error(e)
+						return
+					}
+					auto, _ := g1.AutoPlayers[g.PlayerId]
+					waitTime := time.Second * 10
+					if auto {
+						waitTime = time.Second * 2
+					}
+					time.Sleep(waitTime)
+
+					ss := [][]int{{1, 2}, {2, 4}, {3, 6}, {4, 8}, {5, 10}, {10, 20}}
+					s := ss[room.Score]
+					score := s[0]
+					g1.SetScore(g.PlayerId, score, true)
+				}(v)
+			}
 		}
 
 		res = nil // 抢庄倍数设置成功，res设置为nil，将在defer函数中通知所有人
