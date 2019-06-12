@@ -1,9 +1,13 @@
 package game
 
 import (
+	"errors"
 	"github.com/golang/glog"
+	"github.com/jinzhu/gorm"
 	"github.com/noxue/utils/fsm"
 	"qipai/dao"
+	"qipai/game/card"
+	"qipai/model"
 	"qipai/utils"
 	"time"
 	"utils/argsUtil"
@@ -68,6 +72,81 @@ func cmpCard(roomId uint) (err error) {
 		glog.Error(err)
 		return
 	}
-	gs = gs
+	var banker model.Game  // 庄家
+	var games []model.Game // 闲家
+	for _, v := range gs {
+		if v.Banker {
+			banker = v
+			continue
+		}
+		games = append(games, v)
+	}
+
+	// 庄家和每个闲家比较
+	for _, v := range games {
+		result, e := card.CmpCards(banker.Cards, v.Cards)
+		if e != nil {
+			err = e
+			return
+		}
+		win := -1           // 记录庄家是否胜利，最终记录积分正负
+		winnerCardType := 0 // 记录赢家牌型
+		if result >= 0 {
+			winnerCardType = banker.CardType
+			win = 1
+		} else if result < 0 {
+			winnerCardType = v.CardType
+		}
+
+		bankerTimes := banker.Times
+		//庄家没抢庄，防止*0,
+		if bankerTimes == 0 {
+			bankerTimes = 1
+		}
+		// 牌型倍数 * 闲家下注倍数 * 庄家抢庄倍数
+		totalScore := getTimes(winnerCardType) * v.Score * bankerTimes
+		if totalScore == 0 {
+			glog.Infoln("xxxxxxxxxxxxxxxx")
+		}
+
+		// 更新闲家积分
+		ret := dao.Db().Model(&v).Update("total_score", totalScore*win*-1)
+		if ret.Error != nil {
+			glog.Error(ret.Error)
+			err = errors.New("更新闲家积分出错")
+			return
+		}
+
+		// 更新庄家积分
+		ret = dao.Db().Model(&banker).Update("total_score", gorm.Expr("total_score + ?", totalScore*win))
+		if ret.Error != nil {
+			glog.Error(ret.Error)
+			err = errors.New("更新庄家积分出错")
+			return
+		}
+	}
+	return
+}
+
+func getTimes(cardType int) (times int) {
+	switch cardType {
+	case card.DouniuType_Niu7, card.DouniuType_Niu8, card.DouniuType_Niu9:
+		times = 2
+		break
+	case card.DouniuType_Niuniu:
+		times = 3
+		break
+	case card.DouniuType_Wuhua:
+		times = 5
+		break
+	case card.DouniuType_Zhadan:
+		times = 8
+		break
+	case card.DouniuType_Wuxiao:
+		times = 10
+		break
+	default:
+		times = 1
+	}
 	return
 }

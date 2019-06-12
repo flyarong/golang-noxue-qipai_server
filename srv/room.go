@@ -29,7 +29,7 @@ func deleteAllInvalidRooms() {
 		// 超过10分钟，游戏没开始的房间，并且不是俱乐部房间，自动解散
 		if isRoomExpired(&room) {
 			deletePlayersInRoom(room.ID)
-			dao.Db().Unscoped().Delete(&room)
+			dao.Db().Delete(&room)
 			continue // 继续下一个
 		}
 
@@ -65,7 +65,7 @@ func deleteExpiredRoom(roomId uint) (err error) {
 	}
 	if isRoomExpired(&room) {
 		deletePlayersInRoom(room.ID)
-		dao.Db().Unscoped().Delete(&room)
+		dao.Room.Delete(room.ID)
 	}
 	return
 }
@@ -85,7 +85,7 @@ func deletePlayersInRoom(roomId uint) (err error) {
 		}
 		dao.Db().Unscoped().Delete(&v)
 	}
-	dao.Db().Unscoped().Delete(model.Player{}, "room_id=?", roomId)
+	dao.Db().Delete(model.Player{}, "room_id=?", roomId)
 	return
 }
 
@@ -106,7 +106,7 @@ func (this *roomSrv) Create(room *model.Room) (err error) {
 
 /**
 删除房间，并通知房间内的人
- */
+*/
 func (this *roomSrv) Delete(roomId, uid uint) (err error) {
 
 	room, e := dao.Room.Get(roomId)
@@ -131,12 +131,6 @@ func (this *roomSrv) Delete(roomId, uid uint) (err error) {
 	}
 
 	err = deletePlayersInRoom(roomId)
-	return
-}
-
-func (roomSrv) MyRooms(uid uint) (rooms []model.Room) {
-	// select r.* from rooms r join  players p on p.room_id=r.id where p.uid=100000;
-	dao.Db().Raw("select r.* from rooms r join  players p on p.room_id=r.id where r.`deleted_at` IS NULL and p.uid=?", uid).Scan(&rooms)
 	return
 }
 
@@ -209,8 +203,16 @@ func (this *roomSrv) Join(rid, uid uint, nick string) (err error) {
 		err = errors.New("该房间不存在，或已解散")
 		return
 	}
+	// 检测是不是退出后重新进入的玩家
+	players := dao.Room.PlayersSitDown(rid)
+	ok := false
+	for _, v := range players {
+		if v.Uid == uid && v.DeskId > 0 {
+			ok = true
+		}
+	}
 	// 游戏中无法加入,防止别人扫描哪些房间存在，游戏中的房间和不存在的提示信息一样
-	if room.Status == enum.GamePlaying{
+	if room.Status == enum.GamePlaying && !ok {
 		err = errors.New("该房间不存在")
 		return
 	}
@@ -236,13 +238,12 @@ func (this *roomSrv) Join(rid, uid uint, nick string) (err error) {
 
 /*
 退出房间
- */
+*/
 func (this *roomSrv) Exit(rid, uid uint) (err error) {
-
 	defer func() {
 		if err == nil {
 			this.SendExit(rid, uid)
-			if ret := dao.Db().Model(model.Player{}).Where("id=?", uid).Update(map[string]interface{}{"desk_id": 0, "joined_at": nil}); ret.Error != nil {
+			if ret := dao.Db().Model(model.Player{}).Where("uid=? and room_id=?", uid, rid).Update(map[string]interface{}{"desk_id": 0, "joined_at": nil}); ret.Error != nil {
 				glog.Error(ret.Error)
 				return
 			}

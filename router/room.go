@@ -152,7 +152,7 @@ func sit(s *zero.Session, msg *zero.Message) {
 func joinRoom(s *zero.Session, msg *zero.Message) {
 
 	type reqData struct {
-		Id uint `json:"id"`
+		RoomId uint `json:"roomId"`
 	}
 
 	res := utils.Msg("")
@@ -172,11 +172,11 @@ func joinRoom(s *zero.Session, msg *zero.Message) {
 
 	p := game.GetPlayerFromSession(s)
 
-	err = srv.Room.Join(data.Id, uint(p.Uid), p.Nick)
+	err = srv.Room.Join(data.RoomId, uint(p.Uid), p.Nick)
 	if err != nil {
 		if err.Error() == "该房间不存在，或已解散" {
 			res = nil
-			utils.Msg("房间超过10分钟未开始或已经结束，自动解散").AddData("roomId", data.Id).Send(game.ResDeleteRoom, s)
+			utils.Msg("房间超过10分钟未开始或已经结束，自动解散").AddData("roomId", data.RoomId).Send(game.ResDeleteRoom, s)
 			return
 		}
 		res = utils.Msg(err.Error()).Code(-1)
@@ -189,7 +189,7 @@ func joinRoom(s *zero.Session, msg *zero.Message) {
 		DeskId int  `json:"deskId"` // 座位号
 	}
 
-	players := dao.Room.PlayersSitDown(data.Id)
+	players := dao.Room.PlayersSitDown(data.RoomId)
 	var pvs []playerV
 	for _, v := range players {
 		var pv playerV
@@ -338,7 +338,7 @@ func roomList(s *zero.Session, msg *zero.Message) {
 
 	p := game.GetPlayerFromSession(s)
 
-	rooms := srv.Room.MyRooms(uint(p.Uid))
+	rooms := dao.Room.MyRooms(uint(p.Uid))
 	var roomsV []roomV
 	for _, v := range rooms {
 		var r roomV

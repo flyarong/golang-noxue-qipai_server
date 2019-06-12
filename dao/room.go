@@ -38,11 +38,17 @@ func (roomDao) Exists(roomId uint) bool {
 
 // 删除房间信息
 func (roomDao) Delete(roomId uint) (err error) {
-	res := Db().Unscoped().Where("id=?", roomId).Delete(&model.Room{})
+	res := Db().Where("id=?", roomId).Delete(&model.Room{})
 	if res.Error != nil {
 		glog.Errorln(res.Error)
 		err = errors.New("解散房间出错")
 		return
 	}
+	return
+}
+
+func (roomDao) MyRooms(uid uint) (rooms []model.Room) {
+	// select r.* from rooms r join  players p on p.room_id=r.id where p.uid=100000;
+	Db().Raw("select r.* from rooms r join  players p on p.room_id=r.id where r.`deleted_at` IS NULL and p.uid=?", uid).Scan(&rooms)
 	return
 }
