@@ -4,6 +4,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/noxue/utils/argsUtil"
 	"github.com/noxue/utils/fsm"
+	"qipai/config"
 	"qipai/dao"
 	"qipai/model"
 	"qipai/utils"
@@ -47,6 +48,9 @@ func StateReady(action fsm.ActionType, args ...interface{}) (nextState fsm.State
 
 				auto, _ := g.AutoPlayers[player.Uid]
 				var t time.Duration = 10 // 正常10秒钟
+				if config.Config.Debug {
+					t = 1;
+				}
 				if auto {
 					t = 2 // 托管模式 2秒钟自动抢庄
 				}

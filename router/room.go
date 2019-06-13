@@ -114,8 +114,9 @@ func sit(s *zero.Session, msg *zero.Message) {
 
 	// 获取当前房间所有玩家
 	type playerV struct {
-		Uid    uint `json:"uid"`    // 用户编号
-		DeskId int  `json:"deskId"` // 座位号
+		Uid        uint `json:"uid"`        // 用户编号
+		DeskId     int  `json:"deskId"`     // 座位号
+		TotalScore int  `json:"totalScore"` // 玩家总分
 	}
 
 	players := dao.Room.PlayersSitDown(data.Id)

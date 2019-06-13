@@ -66,7 +66,7 @@ func StateGameOver(action fsm.ActionType, args ...interface{}) (nextState fsm.St
 			SendToAllPlayers(utils.Msg("").AddData("roomId", roomId), BroadcastGameOver, roomId)
 
 			// 删除房间里面的人
-			ret := dao.Db().Unscoped().Delete(model.Player{}, "room_id=?", roomId)
+			ret := dao.Db().Delete(model.Player{}, "room_id=?", roomId)
 			if ret.Error != nil {
 				glog.Error(ret.Error)
 				return

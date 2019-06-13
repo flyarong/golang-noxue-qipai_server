@@ -6,6 +6,7 @@ import (
 	"github.com/noxue/utils/argsUtil"
 	"github.com/noxue/utils/fsm"
 	"math/rand"
+	"qipai/config"
 	"qipai/dao"
 	"qipai/model"
 	"qipai/utils"
@@ -115,7 +116,11 @@ func StateSelectBanker(action fsm.ActionType, args ...interface{}) (nextState fs
 						return
 					}
 					auto, _ := g1.AutoPlayers[g.PlayerId]
+
 					waitTime := time.Second * 10
+					if config.Config.Debug {
+						waitTime = time.Millisecond*100;
+					}
 					if auto {
 						waitTime = time.Second * 2
 					}

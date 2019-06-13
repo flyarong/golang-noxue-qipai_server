@@ -55,11 +55,12 @@ type ClubUser struct {
 // 记录房间中的用户
 type Player struct {
 	gorm.Model
-	Uid      uint                     // 用户编号
-	Nick     string                   // 昵称
-	DeskId   int                      // 座位号
-	RoomId   uint                     // 房间编号
-	JoinedAt *time.Time `sql:"index"` // 加入时间
+	Uid        uint                     // 用户编号
+	Nick       string                   // 昵称
+	DeskId     int                      // 座位号
+	RoomId     uint                     // 房间编号
+	TotalScore int                      // 当前房间中游戏总分
+	JoinedAt   *time.Time `sql:"index"` // 加入时间
 }
 
 type Game struct {

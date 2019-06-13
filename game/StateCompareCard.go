@@ -105,9 +105,6 @@ func cmpCard(roomId uint) (err error) {
 		}
 		// 牌型倍数 * 闲家下注倍数 * 庄家抢庄倍数
 		totalScore := getTimes(winnerCardType) * v.Score * bankerTimes
-		if totalScore == 0 {
-			glog.Infoln("xxxxxxxxxxxxxxxx")
-		}
 
 		// 更新闲家积分
 		ret := dao.Db().Model(&v).Update("total_score", totalScore*win*-1)
@@ -117,11 +114,27 @@ func cmpCard(roomId uint) (err error) {
 			return
 		}
 
+		// 更新闲家总积分到玩家数据表
+		ret = dao.Db().Model(&model.Player{}).Where("uid=? and room_id=?", v.PlayerId, v.RoomId).Update("total_score", gorm.Expr("total_score + ?", totalScore*win*-1))
+		if ret.Error != nil {
+			glog.Error(ret.Error)
+			err = errors.New("更新闲家总积分出错")
+			return
+		}
+
 		// 更新庄家积分
 		ret = dao.Db().Model(&banker).Update("total_score", gorm.Expr("total_score + ?", totalScore*win))
 		if ret.Error != nil {
 			glog.Error(ret.Error)
-			err = errors.New("更新庄家积分出错")
+			err = errors.New("更新庄总家积分出错")
+			return
+		}
+
+		// 更新庄家总积分到玩家数据表
+		ret = dao.Db().Model(&model.Player{}).Where("uid=? and room_id=?", banker.PlayerId, banker.RoomId).Update("total_score", gorm.Expr("total_score + ?", totalScore*win))
+		if ret.Error != nil {
+			glog.Error(ret.Error)
+			err = errors.New("更新庄家总积分出错")
 			return
 		}
 	}
