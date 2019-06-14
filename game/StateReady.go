@@ -21,6 +21,7 @@ func StateReady(action fsm.ActionType, args ...interface{}) (nextState fsm.State
 			glog.Errorln(e)
 			return
 		}
+
 		err := DealCards(roomId)
 		if err != nil {
 			glog.Error(err)
