@@ -14,13 +14,13 @@ var Club clubSrv
 type clubSrv struct {
 }
 
-func (this *clubSrv) CreateClub(club *model.Club) (err error) {
+func (this *clubSrv) Create(club *model.Club) (err error) {
 	dao.Db().Save(club)
 	if club.ID == 0 {
-		err = errors.New("俱乐部创建失败，请联系管理员")
+		err = errors.New("茶楼创建失败，请联系管理员")
 		return
 	}
-	// 创建成功后，把自己加入俱乐部
+	// 创建成功后，把自己加入茶楼
 	if err = this.Join(club.ID, club.Uid); err != nil {
 		return
 	}
@@ -43,11 +43,11 @@ func (clubSrv) MyClubs(uid uint) (clubs []model.Club) {
 
 func (clubSrv) Join(clubId, userId uint) (err error) {
 
-	// 查询出俱乐部信息
+	// 查询出茶楼信息
 	var club model.Club
 	dao.Db().First(&club, clubId)
 	if club.ID == 0 {
-		err = errors.New(fmt.Sprintf("编号为%d的俱乐部不存在", clubId))
+		err = errors.New(fmt.Sprintf("编号为%d的茶楼不存在", clubId))
 		return
 	}
 
@@ -55,7 +55,7 @@ func (clubSrv) Join(clubId, userId uint) (err error) {
 	var n int
 	dao.Db().Model(&model.ClubUser{}).Where(&model.ClubUser{Uid: userId, ClubId: clubId}).Count(&n)
 	if n > 0 {
-		err = errors.New("您已经是该俱乐部会员")
+		err = errors.New("您已经是该茶楼会员")
 		return
 	}
 
@@ -64,7 +64,7 @@ func (clubSrv) Join(clubId, userId uint) (err error) {
 		ClubId: clubId,
 	}
 
-	// 如果俱乐部不需要审核，用户就直接成为正式用户
+	// 如果茶楼不需要审核，用户就直接成为正式用户
 	// 如果要加入的用户正好是老板，直接成为正式用户
 	if !club.Check || club.Uid == userId {
 		cu.Status = enum.ClubUserVip
@@ -78,7 +78,7 @@ func (clubSrv) UpdateInfo(clubId uint, check, close bool, name, rollText, notice
 	var club model.Club
 	dao.Db().First(&club, clubId)
 	if club.ID == 0 {
-		err = errors.New("该俱乐部不存在")
+		err = errors.New("该茶楼不存在")
 		return
 	}
 	club.Check = check
@@ -101,7 +101,7 @@ type ClubUser struct {
 	Id        uint              `json:"id"`
 	Nick      string            `json:"nick"`
 	Avatar    string            `json:"avatar"`
-	ClubId    uint              `json:"club_id"` // 俱乐部编号
+	ClubId    uint              `json:"club_id"` // 茶楼编号
 	Status    enum.ClubUserType `json:"status"`  // 0 等待审核，1 正式用户， 2 冻结用户
 	Admin     bool              `json:"admin"`   // 是否是管理员 true 是管理员
 	CreatedAt time.Time         `json:"created_at"`
@@ -126,12 +126,12 @@ func (this *clubSrv) Users(clubId uint) (users []ClubUser) {
 
 func (this *clubSrv) getClubUser(clubId, userId uint) (cu model.ClubUser, err error) {
 	if !this.IsClubUser(userId, clubId) {
-		err = errors.New("用户不属于该俱乐部")
+		err = errors.New("用户不属于该茶楼")
 		return
 	}
 	dao.Db().Where(&model.ClubUser{ClubId: clubId, Uid: userId}).First(&cu)
 	if cu.ID == 0 {
-		err = errors.New("没在俱乐部找到该用户")
+		err = errors.New("没在茶楼找到该用户")
 		return
 	}
 
@@ -185,7 +185,7 @@ func (this *clubSrv) SetPay(clubId, userId uint, ok bool) (err error) {
 	var club model.Club
 	dao.Db().First(&club, cu.ClubId)
 	if club.ID == 0 {
-		err = errors.New("没找到该俱乐部")
+		err = errors.New("没找到该茶楼")
 		return
 	}
 
@@ -218,7 +218,7 @@ func (this *clubSrv) RemoveClubUser(clubId, userId uint) (err error) {
 	var club model.Club
 	dao.Db().First(&club, clubId)
 	if club.ID == 0 {
-		err = errors.New("该俱乐部不存在")
+		err = errors.New("该茶楼不存在")
 		return
 	}
 
@@ -231,7 +231,7 @@ func (this *clubSrv) RemoveClubUser(clubId, userId uint) (err error) {
 	return
 }
 
-// 检查操作人员是不是俱乐部管理员
+// 检查操作人员是不是茶楼管理员
 func (this *clubSrv) IsAdmin(opUid, clubId uint) (ok bool) {
 	cu, err := this.getClubUser(clubId, opUid)
 	if err != nil {
@@ -241,7 +241,7 @@ func (this *clubSrv) IsAdmin(opUid, clubId uint) (ok bool) {
 	return
 }
 
-// 检查操作人员是不是俱乐部老板
+// 检查操作人员是不是茶楼老板
 func (clubSrv) IsBoss(opUid, clubId uint) (ok bool) {
 	var club model.Club
 	dao.Db().First(&club, clubId)
@@ -251,15 +251,15 @@ func (clubSrv) IsBoss(opUid, clubId uint) (ok bool) {
 	return
 }
 
-// 指定用户获取指定俱乐部
+// 指定用户获取指定茶楼
 func (this *clubSrv) GetClub(uid, cid uint) (club model.Club, err error) {
 	if !this.IsClubUser(uid, cid) {
-		err = errors.New("您不是该俱乐部成员")
+		err = errors.New("您不是该茶楼成员")
 		return
 	}
 	dao.Db().First(&club, cid)
 	if club.ID == 0 {
-		err = errors.New("没找到您指定的俱乐部")
+		err = errors.New("没找到您指定的茶楼")
 	}
 	return
 }

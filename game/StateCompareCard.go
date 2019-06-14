@@ -6,6 +6,7 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/noxue/utils/fsm"
 	"qipai/dao"
+	"qipai/enum"
 	"qipai/game/card"
 	"qipai/model"
 	"qipai/utils"
@@ -82,6 +83,13 @@ func cmpCard(roomId uint) (err error) {
 		games = append(games, v)
 	}
 
+	room, e := dao.Room.Get(roomId)
+	if e != nil {
+		err = e
+		glog.Errorln(e)
+		return
+	}
+
 	// 庄家和每个闲家比较
 	for _, v := range games {
 		result, e := card.CmpCards(banker.Cards, v.Cards)
@@ -104,7 +112,7 @@ func cmpCard(roomId uint) (err error) {
 			bankerTimes = 1
 		}
 		// 牌型倍数 * 闲家下注倍数 * 庄家抢庄倍数
-		totalScore := getTimes(winnerCardType) * v.Score * bankerTimes
+		totalScore := getTimes(room.Times, winnerCardType) * v.Score * bankerTimes
 
 		// 更新闲家积分
 		ret := dao.Db().Model(&v).Update("total_score", totalScore*win*-1)
@@ -141,25 +149,23 @@ func cmpCard(roomId uint) (err error) {
 	return
 }
 
-func getTimes(cardType int) (times int) {
-	switch cardType {
-	case card.DouniuType_Niu7, card.DouniuType_Niu8, card.DouniuType_Niu9:
-		times = 2
-		break
-	case card.DouniuType_Niuniu:
-		times = 3
-		break
-	case card.DouniuType_Wuhua:
-		times = 5
-		break
-	case card.DouniuType_Zhadan:
-		times = 8
-		break
-	case card.DouniuType_Wuxiao:
-		times = 10
-		break
-	default:
+// timesType 翻倍规则 cardType 牌型
+// 返回值，具体牌型对应的翻倍倍数
+func getTimes(timesType enum.TimesType, cardType int) (times int) {
+
+	ts := [][]int{
+		[]int{1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 5, 8, 10},
+		[]int{1, 1, 1, 1, 1, 1, 1, 2, 3, 4, 5, 5, 8, 10},
+		[]int{1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 3, 5, 8, 10},
+		[]int{1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 3, 5, 8, 10},
+		[]int{1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 4, 5, 8, 10},
+	}
+
+	if (timesType>=0 && timesType < 5) && (cardType >= 0 && cardType <= card.DouniuType_Wuxiao) {
+		times = ts[timesType][cardType]
+	} else {
 		times = 1
+		glog.Errorln("倍数类型或牌型范围不对。倍数：", timesType, "牌型：", cardType)
 	}
 	return
 }

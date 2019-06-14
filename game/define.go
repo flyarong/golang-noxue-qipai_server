@@ -68,4 +68,32 @@ const (
 	ResGameResult         // 返回游戏战绩
 )
 
+// 俱乐部相关
+const (
+	ReqCreateClub = iota + 401 // 创建俱乐部
+	ResCreateClub
 
+	ReqClub // 获取指定俱乐部信息
+	ResClub
+
+	ReqClubs // 列出加入的俱乐部
+	ResClubs
+
+	ReqExitClub // 请求退出俱乐部
+	ResExitClub
+
+	ReqDelClub // 解散俱乐部
+	ResDelClub
+
+	ReqEditClub // 修改俱乐部名称和公告
+	BroadcastEditClub
+
+	ReqJoinClub // 加入俱乐部
+	BroadcastJoinClub
+
+	ReqClubUsers // users会员列表
+	ResClubUsers
+
+	ReqEditClubUser // 编辑会员状态：action 设为管理(admin) 取消管理(-admin)  冻结(disable) 取消冻结(-disable) 设为代付(pay) 取消代付(-pay) 审核通过用户(add)  移除用户(-add)
+	ResEditClubUser
+)

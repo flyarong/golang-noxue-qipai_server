@@ -28,6 +28,7 @@ type ClubRoomBase struct {
 	Special   int            // 特殊牌型,二进制位表示特殊牌型翻倍规则，一共7类特殊牌型，用最低的7位二进制表示，1表示选中0表示没选中。
 	King      enum.KingType  // 王癞 0 无王癞  1 经典王癞 2 疯狂王癞
 	Uid       uint           // 老板
+	BossNick  string         // 老板昵称
 }
 
 type Room struct {
