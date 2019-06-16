@@ -52,10 +52,17 @@ func (clubSrv) Join(clubId, userId uint) (err error) {
 	}
 
 	// 防止重复加入
-	var n int
-	dao.Db().Model(&model.ClubUser{}).Where(&model.ClubUser{Uid: userId, ClubId: clubId}).Count(&n)
-	if n > 0 {
-		err = errors.New("您已经是该茶楼会员")
+	var clubUser model.ClubUser
+	ret := dao.Db().Model(&model.ClubUser{}).Where(&model.ClubUser{Uid: userId, ClubId: clubId}).First(&clubUser)
+
+	if !ret.RecordNotFound() {
+		if clubUser.Status == enum.ClubUserWait {
+			err = errors.New("等待管理审核中，请联系管理审核。")
+			return
+		} else if clubUser.Status == enum.ClubUserDisable {
+			err = errors.New("您的账号已被该俱乐部管理员冻结")
+			return
+		}
 		return
 	}
 
@@ -70,17 +77,29 @@ func (clubSrv) Join(clubId, userId uint) (err error) {
 		cu.Status = enum.ClubUserVip
 	}
 
+	// 茶楼需要审核，并且不是老板
+	if club.Check && club.Uid != userId {
+		err = errors.New("加入成功，等待管理员审核")
+	}
+
 	dao.Db().Save(cu)
 	return
 }
 
-func (clubSrv) UpdateInfo(clubId uint, check, close bool, name, rollText, notice string) (err error) {
+func (clubSrv) UpdateInfo(clubId, bossUid uint, check, close bool, name, rollText, notice string) (err error) {
 	var club model.Club
 	dao.Db().First(&club, clubId)
 	if club.ID == 0 {
 		err = errors.New("该茶楼不存在")
 		return
 	}
+
+	// 查看是否是老板
+	if club.Uid != bossUid {
+		err = errors.New("您不是茶楼老板，无法编辑茶楼信息")
+		return
+	}
+
 	club.Check = check
 	club.Close = close
 	club.Name = name
@@ -101,11 +120,11 @@ type ClubUser struct {
 	Id        uint              `json:"id"`
 	Nick      string            `json:"nick"`
 	Avatar    string            `json:"avatar"`
-	ClubId    uint              `json:"club_id"` // 茶楼编号
+	ClubId    uint              `json:"clubId"` // 茶楼编号
 	Status    enum.ClubUserType `json:"status"`  // 0 等待审核，1 正式用户， 2 冻结用户
 	Admin     bool              `json:"admin"`   // 是否是管理员 true 是管理员
-	CreatedAt time.Time         `json:"created_at"`
-	DeletedAt *time.Time        `json:"deleted_at"`
+	CreatedAt time.Time         `json:"-"`
+	DeletedAt *time.Time        `json:"-"`
 }
 
 func (this *clubSrv) Users(clubId uint) (users []ClubUser) {
@@ -113,14 +132,6 @@ func (this *clubSrv) Users(clubId uint) (users []ClubUser) {
 	dao.Db().Table("club_users").
 		Select("users.id,users.nick, users.avatar,club_users.admin,club_users.status,club_users.created_at,club_users.deleted_at").
 		Joins("join users on club_users.uid=users.id").Where("club_users.club_id = ?", clubId).Scan(&users)
-
-	//var cus []model.ClubUser
-	//var ids []uint
-	//dao.Db().Where(&model.ClubUser{ClubId: clubId}).Find(&cus)
-	//for _, v := range cus {
-	//	ids = append(ids, v.Uid)
-	//}
-	//dao.Db().Where(ids).Find(&users)
 	return
 }
 

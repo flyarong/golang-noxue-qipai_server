@@ -40,7 +40,7 @@ func StateCompareCard(action fsm.ActionType, args ...interface{}) (nextState fsm
 	}
 
 	for _, g := range gs {
-		pp := GetPlayer(int(g.PlayerId))
+		pp := GetPlayer(g.PlayerId)
 		if pp == nil {
 			glog.V(3).Infoln("用户", g.PlayerId, "不在线，无法通知他看牌")
 			continue

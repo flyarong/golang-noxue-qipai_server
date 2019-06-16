@@ -36,6 +36,7 @@ type Room struct {
 	Current int             // 当前第几局
 	Status  enum.GameStatus // 0 未开始，1 游戏中， 2 已结束
 	ClubId  uint            // 属于哪个俱乐部
+	TableId int             // 俱乐部第几桌
 }
 
 // 俱乐部和房间的关系

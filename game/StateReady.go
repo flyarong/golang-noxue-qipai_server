@@ -59,7 +59,7 @@ func StateReady(action fsm.ActionType, args ...interface{}) (nextState fsm.State
 				g.SetTimes(player.Uid, 0, true) // 默认不抢庄
 			}(p)
 
-			pp := GetPlayer(int(p.Uid))
+			pp := GetPlayer(p.Uid)
 			if pp == nil {
 				glog.Warningln("房间：", roomId, "中  玩家：", p.Uid, "不在线")
 				continue

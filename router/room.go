@@ -136,7 +136,7 @@ func sit(s *zero.Session, msg *zero.Message) {
 		if v.Uid == uint(p.Uid) {
 			continue
 		}
-		otherPlayer := game.GetPlayer(int(v.Uid))
+		otherPlayer := game.GetPlayer(v.Uid)
 		if otherPlayer == nil {
 			glog.Errorln("通知其他用户有用户坐下失败")
 			continue

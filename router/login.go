@@ -46,7 +46,7 @@ func login(s *zero.Session, msg *zero.Message) {
 	}
 
 	game.AddPlayer(s,&game.Player{
-		Uid:  int(user.ID),
+		Uid:  user.ID,
 		Nick: user.Nick,
 	})
 
@@ -169,7 +169,7 @@ func loginByToken(s *zero.Session, msg *zero.Message) {
 	}
 
 	game.AddPlayer(s,&game.Player{
-		Uid:  int(user.Uid),
+		Uid:  user.Uid,
 		Nick: user.Nick,
 	})
 

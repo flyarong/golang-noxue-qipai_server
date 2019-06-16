@@ -5,10 +5,10 @@ import (
 	"zero"
 )
 
-var players map[int]*Player
+var players map[uint]*Player
 
 func init() {
-	players = make(map[int]*Player)
+	players = make(map[uint]*Player)
 
 	// 生成存储 玩家状态的表
 	dao.Db().AutoMigrate(&Player{})
@@ -16,7 +16,7 @@ func init() {
 
 type Player struct {
 	Id      uint          `json:"-" gorm:"primary_key"`
-	Uid     int           `json:"id" sql:"index"`
+	Uid     uint           `json:"id" sql:"index"`
 	Nick    string        `json:"nick"`
 	Session *zero.Session `json:"-" gorm:"-"`
 }
@@ -44,14 +44,14 @@ func AddPlayer(s *zero.Session, p *Player) {
 }
 
 // 移除玩家
-func RemovePlayer(id int) {
+func RemovePlayer(id uint) {
 	if _, ok := players[id]; ok {
 		delete(players, id)
 	}
 }
 
 // 获取保持网络通讯的玩家信息
-func GetPlayer(uid int) *Player {
+func GetPlayer(uid uint) *Player {
 	if v, ok := players[uid]; ok {
 		return v
 	}

@@ -39,7 +39,7 @@ func StateSelectBanker(action fsm.ActionType, args ...interface{}) (nextState fs
 				SendToAllPlayers(res, BroadcastTimes, roomId)
 				return
 			}
-			p := GetPlayer(int(uid))
+			p := GetPlayer(uid)
 			if p == nil {
 				glog.V(1).Infoln("玩家：", uid, "不在线，发送抢庄信息失败")
 				return

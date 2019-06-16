@@ -79,7 +79,7 @@ func deletePlayersInRoom(roomId uint) (err error) {
 		return
 	}
 	for _, v := range ps {
-		if p := game.GetPlayer(int(v.Uid)); p != nil {
+		if p := game.GetPlayer(v.Uid); p != nil {
 			// 通知在线的相关用户
 			utils.Msg("").AddData("roomId", roomId).Send(game.ResDeleteRoom, p.Session)
 		}

@@ -2,7 +2,6 @@ package dao
 
 import (
 	"errors"
-	"github.com/golang/glog"
 	"qipai/model"
 )
 
@@ -11,16 +10,19 @@ var Club clubDao
 type clubDao struct {
 }
 
-func(clubDao)Get(clubId uint)(club model.Club, err error){
-	ret:=Db().First(&club,clubId)
-	if ret.Error!=nil {
-		err =  errors.New("查询俱乐部数据出错")
-		glog.Errorln(ret.Error)
+func (clubDao) Get(clubId uint) (club model.Club, err error) {
+	ret := Db().First(&club, clubId)
+	if ret.RecordNotFound() {
+		err = errors.New("该茶楼不存在")
 		return
 	}
+	return
+}
 
-	if ret.RecordNotFound(){
-		err = errors.New("该俱乐部不存在")
+func (clubDao) Del(clubId uint) (err error) {
+	ret := Db().Delete(&model.Club{}, clubId)
+	if ret.RowsAffected == 0 {
+		err = errors.New("删除茶楼失败")
 		return
 	}
 	return

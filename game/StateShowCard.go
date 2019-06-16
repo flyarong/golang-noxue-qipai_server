@@ -27,7 +27,7 @@ func StateShowCard(action fsm.ActionType, args ...interface{}) (nextState fsm.St
 		return
 	}
 	for _, g := range gs {
-		pp := GetPlayer(int(g.PlayerId))
+		pp := GetPlayer(g.PlayerId)
 		if pp == nil {
 			glog.V(3).Infoln("用户", g.PlayerId, "不在线，无法通知他看牌")
 			continue

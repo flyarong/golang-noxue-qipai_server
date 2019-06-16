@@ -17,7 +17,7 @@ import (
 func SendToAllPlayers(msg *utils.Message, msgId int32, roomId uint) {
 	ps := dao.Room.PlayersSitDown(roomId)
 	for _, p := range ps {
-		pp := GetPlayer(int(p.Uid))
+		pp := GetPlayer(p.Uid)
 		if pp == nil {
 			continue
 		}

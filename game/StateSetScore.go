@@ -38,7 +38,7 @@ func StateSetScore(action fsm.ActionType, args ...interface{}) (nextState fsm.St
 			SendToAllPlayers(res, BroadcastScore, roomId)
 			return
 		}
-		p := GetPlayer(int(uid))
+		p := GetPlayer(uid)
 		if p == nil {
 			glog.V(1).Infoln("玩家：", uid, "不在线，发送下注信息失败")
 			return
