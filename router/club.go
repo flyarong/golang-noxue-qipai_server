@@ -50,18 +50,20 @@ func reqCreateClubRoom(s *zero.Session, msg *zero.Message) {
 	if e != nil {
 		glog.Error(e)
 		res = utils.Msg(e.Error()).Code(-1)
+		return
 	}
 
 	// 该用户是否是当前茶楼用户，并且检测有没有被封
-	user,e:=dao.Club.GetUser(data.ClubId,p.Uid)
+	user, e := dao.Club.GetUser(data.ClubId, p.Uid)
 	if e != nil {
 		glog.Error(e)
 		res = utils.Msg(e.Error()).Code(-1)
+		return
 	}
 	if user.Status == enum.ClubUserDisable {
 		err = errors.New("您已被管理员冻结，请联系管理员解除！")
 		return
-	} else if user.Status == enum.ClubUserWait{
+	} else if user.Status == enum.ClubUserWait {
 		err = errors.New("您的账号正在等待管理员审核中！")
 		return
 	}
@@ -70,11 +72,12 @@ func reqCreateClubRoom(s *zero.Session, msg *zero.Message) {
 	if e != nil {
 		glog.Error(e)
 		res = utils.Msg(e.Error()).Code(-1)
+		return
 	}
 
 	// 如果tableId指定的位置已经存在房间，直接返回房间号
 	var r model.Room
-	ret:=dao.Db().Where(&model.Room{ClubId:data.ClubId,TableId:data.TableId}).First(&r)
+	ret := dao.Db().Where(&model.Room{ClubId: data.ClubId, TableId: data.TableId}).First(&r)
 	if !ret.RecordNotFound() {
 		res = utils.Msg("").AddData("roomId", r.ID)
 		return
@@ -131,6 +134,7 @@ func reqEditClubUser(s *zero.Session, msg *zero.Message) {
 	if e != nil {
 		glog.Error(e)
 		res = utils.Msg(e.Error()).Code(-1)
+		return
 	}
 
 	// 编辑会员状态：设为管理(admin) 取消管理(-admin)  冻结(disable) 取消冻结(-disable) 设为代付(pay) 取消代付(-pay) 审核通过用户(add)  移除用户(-add)
@@ -268,11 +272,13 @@ func reqDelClub(s *zero.Session, msg *zero.Message) {
 	if e != nil {
 		glog.Error(e)
 		res = utils.Msg(e.Error()).Code(-1)
+		return
 	}
 
 	err = srv.Club.DelClub(data.ClubId, p.Uid)
 	if err != nil {
 		res = utils.Msg(err.Error()).Code(-1)
+		return
 	}
 	res = nil
 }
@@ -298,6 +304,7 @@ func reqClubUsers(s *zero.Session, msg *zero.Message) {
 	if e != nil {
 		glog.Error(e)
 		res = utils.Msg(e.Error()).Code(-1)
+		return
 	}
 	// 只能看到自己加入的俱乐部的用户列表
 	if !srv.Club.IsClubUser(uint(p.Uid), data.ClubId) {
@@ -332,6 +339,7 @@ func reqJoinClub(s *zero.Session, msg *zero.Message) {
 	if e != nil {
 		glog.Error(e)
 		res = utils.Msg(e.Error()).Code(-1)
+		return
 	}
 
 	err = srv.Club.Join(data.ClubId, uint(p.Uid))
@@ -369,6 +377,7 @@ func reqEditClub(s *zero.Session, msg *zero.Message) {
 	if e != nil {
 		glog.Error(e)
 		res = utils.Msg(e.Error()).Code(-1)
+		return
 	}
 
 	if err := srv.Club.UpdateInfo(data.ClubId, uint(p.Uid), data.Check, data.Close, data.Name, data.RollText, data.Notice); err != nil {
@@ -422,6 +431,7 @@ func reqClub(s *zero.Session, msg *zero.Message) {
 	if e != nil {
 		glog.Error(e)
 		res = utils.Msg(e.Error()).Code(-1)
+		return
 	}
 
 	club, err := srv.Club.GetClub(uint(p.Uid), data.ClubId)
@@ -460,6 +470,7 @@ func reqClubs(s *zero.Session, msg *zero.Message) {
 	if e != nil {
 		glog.Error(e)
 		res = utils.Msg(e.Error()).Code(-1)
+		return
 	}
 
 	var clubsV []clubV
@@ -533,6 +544,7 @@ func createClub(s *zero.Session, msg *zero.Message) {
 	if e != nil {
 		glog.Error(e)
 		res = utils.Msg(e.Error()).Code(-1)
+		return
 	}
 	club.Uid = uint(p.Uid)
 

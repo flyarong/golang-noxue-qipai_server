@@ -48,6 +48,7 @@ func deleteRoom(s *zero.Session, msg *zero.Message) {
 	if e != nil {
 		glog.Error(e)
 		res = utils.Msg(e.Error()).Code(-1)
+		return
 	}
 
 	err = srv.Room.Delete(data.Id, uint(p.Uid))
@@ -81,6 +82,7 @@ func leaveRoom(s *zero.Session, msg *zero.Message) {
 	if e != nil {
 		glog.Error(e)
 		res = utils.Msg(e.Error()).Code(-1)
+		return
 	}
 
 	err = srv.Room.Exit(data.Id, uint(p.Uid))
@@ -115,6 +117,7 @@ func sit(s *zero.Session, msg *zero.Message) {
 	if e != nil {
 		glog.Error(e)
 		res = utils.Msg(e.Error()).Code(-1)
+		return
 	}
 
 	roomId, deskId, e := srv.Room.SitDown(data.Id, uint(p.Uid))
@@ -187,6 +190,7 @@ func joinRoom(s *zero.Session, msg *zero.Message) {
 	if e != nil {
 		glog.Error(e)
 		res = utils.Msg(e.Error()).Code(-1)
+		return
 	}
 
 	err = srv.Room.Join(data.RoomId, uint(p.Uid), p.Nick)
@@ -232,7 +236,7 @@ func room(s *zero.Session, msg *zero.Message) {
 		Current   int            `json:"current"`   // 当前第几局
 		Count     int            `json:"count"`     // 总共可以玩几局
 		Uid       uint           `json:"uid"`       // 房主用户编号
-		StartType enum.StartType            `json:"startType"` // 游戏开始方式
+		StartType enum.StartType `json:"startType"` // 游戏开始方式
 		Players   int            `json:"players"`   // 玩家个数
 	}
 
@@ -318,6 +322,7 @@ func createRoom(s *zero.Session, msg *zero.Message) {
 	if e != nil {
 		glog.Error(e)
 		res = utils.Msg(e.Error()).Code(-1)
+		return
 	}
 	room.Uid = uint(p.Uid)
 

@@ -49,6 +49,6 @@ func (roomDao) Delete(roomId uint) (err error) {
 
 func (roomDao) MyRooms(uid uint) (rooms []model.Room) {
 	// select r.* from rooms r join  players p on p.room_id=r.id where p.uid=100000;
-	Db().Raw("select r.* from rooms r join  players p on p.room_id=r.id where r.`deleted_at` IS NULL and r.club_id==0 and p.uid=?", uid).Scan(&rooms)
+	Db().Raw("select r.* from rooms r join  players p on p.room_id=r.id where r.`deleted_at` IS NULL and r.club_id=0 and p.uid=?", uid).Scan(&rooms)
 	return
 }
