@@ -83,7 +83,7 @@ const (
 	ResExitClub
 
 	ReqDelClub // 解散俱乐部
-	ResDelClub
+	BroadcastDelClub
 
 	ReqEditClub // 修改俱乐部名称和公告
 	BroadcastEditClub
@@ -96,4 +96,7 @@ const (
 
 	ReqEditClubUser // 编辑会员状态：action 设为管理(admin) 取消管理(-admin)  冻结(disable) 取消冻结(-disable) 设为代付(pay) 取消代付(-pay) 审核通过用户(add)  移除用户(-add)
 	ResEditClubUser
+
+	ReqCreateClubRoom // 创建俱乐部房间
+	ResCreateClubRoom
 )

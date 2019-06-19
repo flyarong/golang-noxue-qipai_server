@@ -3,9 +3,12 @@ package srv
 import (
 	"errors"
 	"fmt"
+	"github.com/golang/glog"
 	"qipai/dao"
 	"qipai/enum"
+	"qipai/game"
 	"qipai/model"
+	"qipai/utils"
 	"time"
 )
 
@@ -271,6 +274,48 @@ func (this *clubSrv) GetClub(uid, cid uint) (club model.Club, err error) {
 	dao.Db().First(&club, cid)
 	if club.ID == 0 {
 		err = errors.New("没找到您指定的茶楼")
+	}
+	return
+}
+
+
+func (this *clubSrv) DelClub(clubId, uid uint)(err error){
+	club,e:=dao.Club.Get(clubId)
+	if e!=nil{
+		err = e
+		return
+	}
+	if club.Uid != uid  {
+		err = errors.New("您不是茶楼老板，无法解散茶楼!")
+		return
+	}
+
+	users,e := dao.Club.GetClubUsers(clubId)
+	if e!=nil {
+		err=e
+		return
+	}
+
+	e=dao.Club.DelClubUserByClubId(clubId)
+	if e!=nil{
+		err = e
+		return
+	}
+
+	e=dao.Club.Del(clubId)
+	if e!=nil{
+		err = e
+		return
+	}
+
+	// 通知所有在线的玩家，房间解散
+	for _,v:=range users{
+		p:=game.GetPlayer(v.Uid)
+		if p==nil{
+			glog.V(3).Infoln(v.Uid," 玩家不在线,无法通知")
+			continue
+		}
+		utils.Msg("").AddData("clubId", clubId).AddData("uid", uid).Send(game.BroadcastDelClub,p.Session)
 	}
 	return
 }

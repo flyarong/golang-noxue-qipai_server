@@ -2,6 +2,7 @@ package router
 
 import (
 	"encoding/json"
+	"github.com/golang/glog"
 	"qipai/game"
 	"qipai/srv"
 	"qipai/utils"
@@ -43,8 +44,12 @@ func userInfo(s *zero.Session, msg *zero.Message) {
 		return
 	}
 
-	if data.Id == 0{
-		p := game.GetPlayerFromSession(s)
+	if data.Id == 0 {
+		p, e := game.GetPlayerFromSession(s)
+		if e != nil {
+			glog.Error(e)
+			res = utils.Msg(e.Error()).Code(-1)
+		}
 		data.Id = uint(p.Uid)
 	}
 

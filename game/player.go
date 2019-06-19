@@ -1,6 +1,7 @@
 package game
 
 import (
+	"github.com/golang/glog"
 	"qipai/dao"
 	"zero"
 )
@@ -68,9 +69,14 @@ func GetPlayerList() []*Player {
 }
 
 // 从session中获取玩家
-func GetPlayerFromSession(s *zero.Session) *Player {
-	p, _ := s.GetSetting("user").(*Player)
-	return p
+func GetPlayerFromSession(s *zero.Session) (player *Player, err error) {
+	var ok bool
+	player, ok = s.GetSetting("user").(*Player)
+	if !ok {
+		glog.Errorln("在线用户信息转换失败")
+		return
+	}
+	return
 }
 
 func IsLogin(s *zero.Session) bool {

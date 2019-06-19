@@ -41,8 +41,9 @@ type Room struct {
 
 // 俱乐部和房间的关系
 type ClubRoom struct {
-	Cid uint // 俱乐部编号
-	Rid uint // 房间编号
+	Cid     uint // 俱乐部编号
+	Rid     uint // 房间编号
+	TableId int  // 桌子编号
 }
 
 // 记录俱乐部的用户

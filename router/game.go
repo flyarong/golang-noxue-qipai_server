@@ -2,6 +2,7 @@ package router
 
 import (
 	"encoding/json"
+	"github.com/golang/glog"
 	"qipai/game"
 	"qipai/srv"
 	"qipai/utils"
@@ -36,9 +37,13 @@ func gameSetScore(s *zero.Session, msg *zero.Message) {
 		return
 	}
 
-	p := game.GetPlayerFromSession(s)
+	p, e := game.GetPlayerFromSession(s)
+	if e != nil {
+		glog.Error(e)
+		res = utils.Msg(e.Error()).Code(-1)
+	}
 
-	e:=srv.Game.SetScore(data.RoomId,uint(p.Uid),data.Score)
+	e=srv.Game.SetScore(data.RoomId,uint(p.Uid),data.Score)
 	if e!=nil {
 		res = utils.Msg(e.Error()).Code(-1)
 		return
@@ -67,9 +72,13 @@ func gameSetTimes(s *zero.Session, msg *zero.Message) {
 		return
 	}
 
-	p := game.GetPlayerFromSession(s)
+	p, e := game.GetPlayerFromSession(s)
+	if e != nil {
+		glog.Error(e)
+		res = utils.Msg(e.Error()).Code(-1)
+	}
 
-	e:=srv.Game.SetTimes(data.RoomId,uint(p.Uid),data.Times)
+	e=srv.Game.SetTimes(data.RoomId,uint(p.Uid),data.Times)
 	if e!=nil {
 		res = utils.Msg(e.Error()).Code(-1)
 		return
@@ -97,9 +106,13 @@ func gameStart(s *zero.Session, msg *zero.Message) {
 		return
 	}
 
-	p := game.GetPlayerFromSession(s)
+	p, e := game.GetPlayerFromSession(s)
+	if e != nil {
+		glog.Error(e)
+		res = utils.Msg(e.Error()).Code(-1)
+	}
 
-	e:=srv.Game.Start(data.Id,uint(p.Uid))
+	e=srv.Game.Start(data.Id,uint(p.Uid))
 	if e!=nil {
 		res = utils.Msg(e.Error()).Code(-1)
 		return

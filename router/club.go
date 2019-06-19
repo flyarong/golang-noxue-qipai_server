@@ -2,6 +2,7 @@ package router
 
 import (
 	"encoding/json"
+	"errors"
 	"github.com/golang/glog"
 	"qipai/dao"
 	"qipai/enum"
@@ -20,16 +21,22 @@ func init() {
 	game.AddAuthHandler(game.ReqClub, reqClub)
 	game.AddAuthHandler(game.ReqClubUsers, reqClubUsers)
 	game.AddAuthHandler(game.ReqDelClub, reqDelClub)
+	game.AddAuthHandler(game.ReqEditClubUser, reqEditClubUser)
+	game.AddAuthHandler(game.ReqCreateClubRoom, reqCreateClubRoom)
 }
 
-func reqDelClub(s *zero.Session, msg *zero.Message) {
+func reqCreateClubRoom(s *zero.Session, msg *zero.Message) {
 	type reqData struct {
-		ClubId uint `json:"clubId"`
+		ClubId  uint `json:"clubId"`
+		TableId int  `json:"tableId"`
 	}
 
 	res := utils.Msg("")
 	defer func() {
-		res.Send(game.ResClubUsers, s)
+		if res == nil {
+			return
+		}
+		res.Send(game.ResCreateClubRoom, s)
 	}()
 
 	var data reqData
@@ -39,22 +46,235 @@ func reqDelClub(s *zero.Session, msg *zero.Message) {
 		return
 	}
 
-	p := game.GetPlayerFromSession(s)
-	club,e:=dao.Club.Get(data.ClubId)
-	if e!=nil{
+	p, e := game.GetPlayerFromSession(s)
+	if e != nil {
+		glog.Error(e)
 		res = utils.Msg(e.Error()).Code(-1)
-		return
 	}
-	if club.Uid != p.Uid  {
-		res = utils.Msg("您不是茶楼老板，无法解散茶楼!")
+
+	// 该用户是否是当前茶楼用户，并且检测有没有被封
+	user,e:=dao.Club.GetUser(data.ClubId,p.Uid)
+	if e != nil {
+		glog.Error(e)
+		res = utils.Msg(e.Error()).Code(-1)
+	}
+	if user.Status == enum.ClubUserDisable {
+		err = errors.New("您已被管理员冻结，请联系管理员解除！")
+		return
+	} else if user.Status == enum.ClubUserWait{
+		err = errors.New("您的账号正在等待管理员审核中！")
 		return
 	}
 
-	e=dao.Club.Del(data.ClubId)
-	if e!=nil{
+	club, e := dao.Club.Get(data.ClubId)
+	if e != nil {
+		glog.Error(e)
 		res = utils.Msg(e.Error()).Code(-1)
+	}
+
+	// 如果tableId指定的位置已经存在房间，直接返回房间号
+	var r model.Room
+	ret:=dao.Db().Where(&model.Room{ClubId:data.ClubId,TableId:data.TableId}).First(&r)
+	if !ret.RecordNotFound() {
+		res = utils.Msg("").AddData("roomId", r.ID)
 		return
 	}
+
+	var room model.Room
+	if ok := utils.Copy(club, &room); !ok {
+		res = utils.Msg("房间信息赋值失败，请联系管理员").Code(-8)
+		return
+	}
+
+	room.ID = 0
+	room.TableId = data.TableId
+	room.ClubId = club.ID
+
+	if err := srv.Room.Create(&room); err != nil {
+		res = utils.Msg(err.Error()).Code(-9)
+		return
+	}
+
+	err = srv.Room.Join(room.ID, room.Uid, p.Nick)
+	if err != nil {
+		res = utils.Msg(err.Error()).Code(-10)
+		return
+	}
+
+	res = utils.Msg("").AddData("roomId", room.ID)
+}
+
+func reqEditClubUser(s *zero.Session, msg *zero.Message) {
+
+	type reqData struct {
+		ClubId uint   `json:"clubId"`
+		Uid    uint   `json:"uid"`
+		Action string `json:"action"`
+	}
+
+	res := utils.Msg("")
+	defer func() {
+		if res == nil {
+			return
+		}
+		res.Send(game.ResEditClubUser, s)
+	}()
+
+	var data reqData
+	err := json.Unmarshal(msg.GetData(), &data)
+	if err != nil {
+		res = utils.Msg(err.Error()).Code(-1)
+		return
+	}
+
+	p, e := game.GetPlayerFromSession(s)
+	if e != nil {
+		glog.Error(e)
+		res = utils.Msg(e.Error()).Code(-1)
+	}
+
+	// 编辑会员状态：设为管理(admin) 取消管理(-admin)  冻结(disable) 取消冻结(-disable) 设为代付(pay) 取消代付(-pay) 审核通过用户(add)  移除用户(-add)
+	action := data.Action
+
+	glog.V(3).Infoln("编辑用户：", p.Nick, "\t", action)
+
+	isAdmin := srv.Club.IsAdmin(p.Uid, data.ClubId)
+	isBoss := srv.Club.IsBoss(p.Uid, data.ClubId)
+	// 只有管理员或创建者可以操作
+	if !isAdmin && !isBoss {
+		res = utils.Msg("您不是管理员或老板，无法操作！").Code(-1)
+		return
+	}
+
+	// 自己不能编辑自己
+	if p.Uid == data.Uid {
+		res = utils.Msg("您不能对自己进行操作！").Code(-1)
+		return
+	}
+
+	err = nil
+
+	switch action {
+	case "admin":
+		// 只有老板可以设置管理员
+		if !isBoss {
+			res = utils.Msg("您不是老板，无法设置管理员！").Code(-1)
+			return
+		}
+		err = srv.Club.SetAdmin(data.ClubId, data.Uid, true)
+		if err != nil {
+			res = utils.Msg(err.Error()).Code(-1)
+			return
+		}
+	case "-admin":
+		// 只有老板可以取消管理员
+		if !isBoss {
+			res = utils.Msg("您不是老板，无法取消管理员！").Code(-1)
+			return
+		}
+		err = srv.Club.SetAdmin(data.ClubId, data.Uid, false)
+		if err != nil {
+			res = utils.Msg(err.Error()).Code(-1)
+			return
+		}
+	case "disable":
+		// 管理员 不能冻结管理员或老板
+		if isAdmin && (srv.Club.IsBoss(data.Uid, data.ClubId) || srv.Club.IsAdmin(data.Uid, data.ClubId)) {
+			res = utils.Msg("管理员无法冻结其他管理员和老板").Code(-1)
+			return
+		}
+		err = srv.Club.SetDisable(data.ClubId, data.Uid, true)
+		if err != nil {
+			res = utils.Msg(err.Error()).Code(-1)
+			return
+		}
+	case "-disable":
+		// 管理员 不能接触冻结管理员或老板
+		if isAdmin && (srv.Club.IsBoss(data.Uid, data.ClubId) || srv.Club.IsAdmin(data.Uid, data.ClubId)) {
+			res = utils.Msg("管理员无法接触冻结管理员和老板").Code(-1)
+			return
+		}
+		err = srv.Club.SetDisable(data.ClubId, data.Uid, false)
+		if err != nil {
+			res = utils.Msg(err.Error()).Code(-1)
+			return
+		}
+	case "pay":
+		if !isBoss {
+			res = utils.Msg("您不是老板，无法设置代付！").Code(-1)
+			return
+		}
+		err = srv.Club.SetPay(data.ClubId, data.Uid, true)
+		if err != nil {
+			res = utils.Msg(err.Error()).Code(-1)
+			return
+		}
+	case "-pay":
+		if !isBoss {
+			res = utils.Msg("您不是老板，无法取消代付！").Code(-1)
+			return
+		}
+		err = srv.Club.SetPay(data.ClubId, data.Uid, false)
+		if err != nil {
+			res = utils.Msg(err.Error()).Code(-1)
+			return
+		}
+	case "add":
+		// 审核通过，就是设置为普通用户，跟取消冻结操作一样
+		err = srv.Club.SetDisable(data.ClubId, data.Uid, false)
+		if err != nil {
+			res = utils.Msg(err.Error()).Code(-1)
+			return
+		}
+	case "-add":
+		// 管理员 不能移除管理员或老板
+		if isAdmin && (srv.Club.IsBoss(data.Uid, data.ClubId) || srv.Club.IsAdmin(data.Uid, data.ClubId)) {
+			res = utils.Msg("管理员无法移除其他管理员和老板").Code(-1)
+			return
+		}
+		err = srv.Club.RemoveClubUser(data.ClubId, data.Uid)
+		if err != nil {
+			res = utils.Msg(err.Error()).Code(-1)
+			return
+		}
+	default:
+		res = utils.Msg("不支持这个操作:" + action).Code(-1)
+		return
+	}
+	res.AddData("clubId", data.ClubId)
+}
+
+func reqDelClub(s *zero.Session, msg *zero.Message) {
+	type reqData struct {
+		ClubId uint `json:"clubId"`
+	}
+
+	res := utils.Msg("")
+	defer func() {
+		if res == nil {
+			return
+		}
+		res.Send(game.BroadcastDelClub, s)
+	}()
+
+	var data reqData
+	err := json.Unmarshal(msg.GetData(), &data)
+	if err != nil {
+		res = utils.Msg(err.Error()).Code(-1)
+		return
+	}
+
+	p, e := game.GetPlayerFromSession(s)
+	if e != nil {
+		glog.Error(e)
+		res = utils.Msg(e.Error()).Code(-1)
+	}
+
+	err = srv.Club.DelClub(data.ClubId, p.Uid)
+	if err != nil {
+		res = utils.Msg(err.Error()).Code(-1)
+	}
+	res = nil
 }
 
 func reqClubUsers(s *zero.Session, msg *zero.Message) {
@@ -74,7 +294,11 @@ func reqClubUsers(s *zero.Session, msg *zero.Message) {
 		return
 	}
 
-	p := game.GetPlayerFromSession(s)
+	p, e := game.GetPlayerFromSession(s)
+	if e != nil {
+		glog.Error(e)
+		res = utils.Msg(e.Error()).Code(-1)
+	}
 	// 只能看到自己加入的俱乐部的用户列表
 	if !srv.Club.IsClubUser(uint(p.Uid), data.ClubId) {
 		res = utils.Msg("你不属于该俱乐部，无法查看该俱乐部用户列表").Code(-1)
@@ -104,7 +328,11 @@ func reqJoinClub(s *zero.Session, msg *zero.Message) {
 		return
 	}
 
-	p := game.GetPlayerFromSession(s)
+	p, e := game.GetPlayerFromSession(s)
+	if e != nil {
+		glog.Error(e)
+		res = utils.Msg(e.Error()).Code(-1)
+	}
 
 	err = srv.Club.Join(data.ClubId, uint(p.Uid))
 	if err != nil {
@@ -137,7 +365,11 @@ func reqEditClub(s *zero.Session, msg *zero.Message) {
 		return
 	}
 
-	p := game.GetPlayerFromSession(s)
+	p, e := game.GetPlayerFromSession(s)
+	if e != nil {
+		glog.Error(e)
+		res = utils.Msg(e.Error()).Code(-1)
+	}
 
 	if err := srv.Club.UpdateInfo(data.ClubId, uint(p.Uid), data.Check, data.Close, data.Name, data.RollText, data.Notice); err != nil {
 		res = utils.Msg(err.Error()).Code(-1)
@@ -186,7 +418,11 @@ func reqClub(s *zero.Session, msg *zero.Message) {
 		return
 	}
 
-	p := game.GetPlayerFromSession(s)
+	p, e := game.GetPlayerFromSession(s)
+	if e != nil {
+		glog.Error(e)
+		res = utils.Msg(e.Error()).Code(-1)
+	}
 
 	club, err := srv.Club.GetClub(uint(p.Uid), data.ClubId)
 	if err != nil {
@@ -214,13 +450,17 @@ func reqClubs(s *zero.Session, msg *zero.Message) {
 		BossUid uint           `json:"bossUid"`
 	}
 
-	resMsg := utils.Msg("")
+	res := utils.Msg("")
 
 	defer func() {
-		resMsg.Send(game.ResClubs, s)
+		res.Send(game.ResClubs, s)
 	}()
 
-	p := game.GetPlayerFromSession(s)
+	p, e := game.GetPlayerFromSession(s)
+	if e != nil {
+		glog.Error(e)
+		res = utils.Msg(e.Error()).Code(-1)
+	}
 
 	var clubsV []clubV
 	for _, v := range srv.Club.MyClubs(uint(p.Uid)) {
@@ -233,13 +473,13 @@ func reqClubs(s *zero.Session, msg *zero.Message) {
 			BossUid: v.Uid,
 		})
 	}
-	resMsg = utils.Msg("").AddData("clubs", clubsV)
+	res = utils.Msg("").AddData("clubs", clubsV)
 }
 
 func createClub(s *zero.Session, msg *zero.Message) {
-	resMsg := utils.Msg("")
+	res := utils.Msg("")
 	defer func() {
-		resMsg.Send(game.ResCreateClub, s)
+		res.Send(game.ResCreateClub, s)
 	}()
 
 	type reqForm struct {
@@ -254,46 +494,50 @@ func createClub(s *zero.Session, msg *zero.Message) {
 	var form reqForm
 	err := json.Unmarshal(msg.GetData(), &form)
 	if err != nil {
-		resMsg = utils.Msg(err.Error()).Code(-1)
+		res = utils.Msg(err.Error()).Code(-1)
 		return
 	}
 
 	// 限制只能 10  20 30 局
 	if form.Count != 10 && form.Count != 20 && form.Count != 30 {
-		resMsg = utils.Msg("局数[count]只能是10/20/30").Code(-2)
+		res = utils.Msg("局数[count]只能是10/20/30").Code(-2)
 		return
 	}
 
 	// 限制游戏开始方式
 	if form.StartType != 0 && form.StartType != 1 {
-		resMsg = utils.Msg("开始方式[start]只能是0或1").Code(-3)
+		res = utils.Msg("开始方式[start]只能是0或1").Code(-3)
 		return
 	}
 
 	// 限制支付模式
 	if form.Pay != 0 && form.Pay != 1 {
-		resMsg = utils.Msg("支付方式[pay]只能是0或1").Code(-4)
+		res = utils.Msg("支付方式[pay]只能是0或1").Code(-4)
 		return
 	}
 
 	// 限制翻倍规则
 	if form.Times < 0 || form.Times > 4 {
-		resMsg = utils.Msg("翻倍规则[times]取值不合法，只能在0-4之间").Code(-7)
+		res = utils.Msg("翻倍规则[times]取值不合法，只能在0-4之间").Code(-7)
 		return
 	}
 
 	// 底分取值不合法
 	if form.Score < 0 || form.Score > 5 {
-		resMsg = utils.Msg("底分类型取值只能在0-5之间").Code(-7)
+		res = utils.Msg("底分类型取值只能在0-5之间").Code(-7)
 		return
 	}
 
 	var club model.Club
-	p := game.GetPlayerFromSession(s)
+	p, e := game.GetPlayerFromSession(s)
+	if e != nil {
+		glog.Error(e)
+		res = utils.Msg(e.Error()).Code(-1)
+	}
 	club.Uid = uint(p.Uid)
 
 	if ok := utils.Copy(form, &club); !ok {
-		resMsg = utils.Msg("茶楼信息赋值失败，请联系管理员").Code(-8)
+		res = utils.Msg("茶楼信息赋值失败，请联系管理员").Code(-8)
 		return
 	}
 
@@ -308,21 +552,21 @@ func createClub(s *zero.Session, msg *zero.Message) {
 	u, e := dao.User.Get(uint(p.Uid))
 	if e != nil {
 		glog.Errorln(e)
-		resMsg = utils.Msg(e.Error()).Code(-7)
+		res = utils.Msg(e.Error()).Code(-7)
 		return
 	}
 	club.BossNick = u.Nick
 
 	if err := srv.Club.Create(&club); err != nil {
-		resMsg = utils.Msg(err.Error()).Code(-9)
+		res = utils.Msg(err.Error()).Code(-9)
 		return
 	}
 
 	err = srv.Club.Join(club.ID, club.Uid)
 	if err != nil {
-		resMsg = utils.Msg(err.Error()).Code(-10)
+		res = utils.Msg(err.Error()).Code(-10)
 		return
 	}
 
-	resMsg = utils.Msg("").AddData("clubId", club.ID)
+	res = utils.Msg("").AddData("clubId", club.ID)
 }

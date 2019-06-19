@@ -55,10 +55,15 @@ func HandleMessage(s *zero.Session, msg *zero.Message) {
 
 // HandleDisconnect 处理网络断线
 func HandleDisconnect(s *zero.Session, err error) {
-	glog.Info(s.GetConn().GetName() + " 掉线")
+	glog.V(2).Infoln(s.GetConn().GetName() + " 掉线")
 	// 如果玩家已登录，保存掉线玩家
 	if IsLogin(s){
-		p:=GetPlayerFromSession(s)
+		p,e:=GetPlayerFromSession(s)
+		if e!=nil{
+			glog.Errorln(e)
+			err = e
+			return
+		}
 		RemovePlayer(p.Uid)
 		dao.Db().Save(p)
 	}
