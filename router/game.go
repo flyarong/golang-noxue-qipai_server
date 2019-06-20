@@ -57,6 +57,11 @@ func reqGameResult(s *zero.Session, msg *zero.Message) {
 		return
 	}
 
+	if len(players)<1{
+		res = utils.Msg("没有更多历史战绩!").Code(-1)
+		return
+	}
+
 	var room model.Room
 	ret = dao.Db().Unscoped().First(&room, players[0].RoomId)
 	if ret.RecordNotFound() {
@@ -66,13 +71,14 @@ func reqGameResult(s *zero.Session, msg *zero.Message) {
 	}
 
 	type roomV struct {
+		ID        uint           `json:"id"`
 		Players   int            `json:"players"`
 		Score     enum.ScoreType `json:"score"`
 		Pay       enum.PayType   `json:"pay"`
 		Count     int            `json:"count"`
 		StartType enum.StartType `json:"start"`
 		Times     int            `json:"times"`
-		CreatedAt time.Time `json:"createdAt"`
+		CreatedAt time.Time      `json:"createdAt"`
 	}
 
 	var rv roomV

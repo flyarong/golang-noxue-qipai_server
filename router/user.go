@@ -3,6 +3,7 @@ package router
 import (
 	"encoding/json"
 	"github.com/golang/glog"
+	"qipai/enum"
 	"qipai/game"
 	"qipai/srv"
 	"qipai/utils"
@@ -12,6 +13,48 @@ import (
 
 func init() {
 	game.AddAuthHandler(game.ReqUserInfo, userInfo)
+	game.AddAuthHandler(game.ReqReset, reqReset)
+}
+
+func reqReset(s *zero.Session, msg *zero.Message) {
+
+	type ReqReset struct {
+		UserType enum.UserType `form:"type" json:"type" binding:"required"`
+		Pass     string        `form:"pass" json:"pass" binding:"required"`
+		Name     string        `form:"name" json:"name" binding:"required"`
+		Code     string        `form:"code" json:"code" binding:"required"`
+	}
+
+
+	res := utils.Msg("")
+	defer func() {
+		res.Send(game.ResReset, s)
+	}()
+	var data ReqReset
+	err := json.Unmarshal(msg.GetData(), &data)
+	if err != nil {
+		return
+	}
+	if data.UserType != enum.MobilePass {
+		res = utils.Msg("目前仅支持手机重置密码").Code(-1)
+		return
+	}
+
+	// 检查手机验证码，无论对错都删除验证码，防止暴力破解
+	code := utils.Lv.Get("code_" + data.Name)
+	utils.Lv.Del("code_" + data.Name)
+	if code != data.Code {
+		res = utils.Msg("手机验证码错误").Code(-1)
+		return
+	}
+
+	e:=srv.User.ChangePass(data.UserType, data.Name, data.Pass)
+	if e!=nil {
+		res = utils.Msg(e.Error()).Code(-1)
+		return
+	}
+
+	return
 }
 
 func userInfo(s *zero.Session, msg *zero.Message) {

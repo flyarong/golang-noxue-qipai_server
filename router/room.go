@@ -60,7 +60,7 @@ func deleteRoom(s *zero.Session, msg *zero.Message) {
 
 func leaveRoom(s *zero.Session, msg *zero.Message) {
 	type reqData struct {
-		Id uint `json:"id"`
+		RoomId uint `json:"roomId"`
 	}
 
 	res := utils.Msg("")
@@ -85,7 +85,7 @@ func leaveRoom(s *zero.Session, msg *zero.Message) {
 		return
 	}
 
-	err = srv.Room.Exit(data.Id, uint(p.Uid))
+	err = srv.Room.Exit(data.RoomId, uint(p.Uid))
 	if err != nil {
 		res = utils.Msg(err.Error()).Code(-1)
 		return

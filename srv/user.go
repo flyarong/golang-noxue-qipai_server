@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/dgrijalva/jwt-go"
 	"qipai/dao"
+	"qipai/enum"
 	"qipai/model"
 	"qipai/utils"
 	"time"
@@ -121,4 +122,18 @@ func (userSrv) GetInfo(uid uint) (*model.User, error) {
 		return nil, errors.New(fmt.Sprintf("没找到id为[%d]的用户信息", uid))
 	}
 	return &user, nil
+}
+
+
+func (userSrv)ChangePass(userType enum.UserType, name, pass string) (err error){
+	auth,e:=dao.Auth.Get(userType,name)
+	if e!=nil{
+		err = e
+		return
+	}
+
+	auth.Pass = pass
+	dao.Db().Save(&auth)
+
+	return
 }
