@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/golang/glog"
 	"math/rand"
+	"qipai/config"
 	"qipai/domain"
 	"qipai/enum"
 	"qipai/game"
@@ -45,7 +46,7 @@ func login(s *zero.Session, msg *zero.Message) {
 		return
 	}
 
-	game.AddPlayer(s,&game.Player{
+	game.AddPlayer(s, &game.Player{
 		Uid:  user.ID,
 		Nick: user.Nick,
 	})
@@ -101,9 +102,17 @@ func code(s *zero.Session, msg *zero.Message) {
 
 	resCode := utils.Msg("")
 	defer func() {
+		if resCode ==nil{
+			return
+		}
 		resCode.Send(game.ResCode, s)
 	}()
-	var reqCode domain.ReqCode
+	// 请求手机验证码
+	type ReqCode struct {
+		Phone    string      `json:"phone"`
+		CodeType smsCodeType `json:"type"`
+	}
+	var reqCode ReqCode
 	err := json.Unmarshal(msg.GetData(), &reqCode)
 	if err != nil {
 		resCode = utils.Msg(err.Error()).Code(-1)
@@ -116,14 +125,25 @@ func code(s *zero.Session, msg *zero.Message) {
 		return
 	}
 
-	if utils.Lv.Get("code_"+reqCode.Phone) != "" {
-		resCode = utils.Msg("验证码已发送，请注意查收")
+	oldCode :=utils.Lv.Get("code_"+reqCode.Phone)
+	if oldCode != "" {
+		if config.Config.Debug{
+			glog.Infoln("验证码:",oldCode)
+		}
 		return
 	}
 
 	code := rand.Intn(9000) + 1000
 
-	ok := utils.SendSmsRegCode(reqCode.Phone, strconv.Itoa(code))
+	var ok bool
+	switch reqCode.CodeType {
+	case smsCodeReg:
+		ok = utils.SendSmsRegCode(reqCode.Phone, strconv.Itoa(code))
+	case smsCodeReset:
+		ok = utils.SendSmsResetCode(reqCode.Phone, strconv.Itoa(code))
+	case smsCodeLogin:
+		ok = utils.SendSmsLoginCode(reqCode.Phone, strconv.Itoa(code))
+	}
 	if !ok {
 		resCode = utils.Msg("验证码已发送失败，请联系客服").Code(-1)
 		return
@@ -140,7 +160,7 @@ func loginByToken(s *zero.Session, msg *zero.Message) {
 	var res = utils.Msg("")
 	defer func() {
 		if glog.V(3) {
-			glog.Infoln("token登录:",res.ToJson())
+			glog.Infoln("token登录:", res.ToJson())
 		}
 		res.Send(game.ResLoginByToken, s)
 	}()
@@ -168,7 +188,7 @@ func loginByToken(s *zero.Session, msg *zero.Message) {
 		return
 	}
 
-	game.AddPlayer(s,&game.Player{
+	game.AddPlayer(s, &game.Player{
 		Uid:  user.Uid,
 		Nick: user.Nick,
 	})

@@ -13,7 +13,7 @@ import (
 
 func init() {
 	game.AddAuthHandler(game.ReqUserInfo, userInfo)
-	game.AddAuthHandler(game.ReqReset, reqReset)
+	game.AddHandler(game.ReqReset, reqReset)
 }
 
 func reqReset(s *zero.Session, msg *zero.Message) {
@@ -24,7 +24,6 @@ func reqReset(s *zero.Session, msg *zero.Message) {
 		Name     string        `form:"name" json:"name" binding:"required"`
 		Code     string        `form:"code" json:"code" binding:"required"`
 	}
-
 
 	res := utils.Msg("")
 	defer func() {

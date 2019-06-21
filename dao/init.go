@@ -2,7 +2,6 @@ package dao
 
 import (
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/golang/glog"
 	"github.com/jinzhu/gorm"
 	"log"
 	"qipai/config"
@@ -28,10 +27,8 @@ func init() {
 	}
 
 	db = db.Set("gorm:table_options", "ENGINE=InnoDB  DEFAULT CHARSET=utf8mb4;")
-	db.LogMode(true)
-	if glog.V(3){
 
-	}
+	db.LogMode(config.Config.Debug)
 
 	Db().AutoMigrate(
 		&model.Auth{},

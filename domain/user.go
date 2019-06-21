@@ -21,10 +21,7 @@ type ReqReg struct {
 	Code     string        `form:"code" json:"code" binding:"required"`
 }
 
-// 请求手机验证码
-type ReqCode struct {
-	Phone string `json:"phone"`
-}
+
 
 type ReqLoginByToken struct {
 	Token string `json:"token"`

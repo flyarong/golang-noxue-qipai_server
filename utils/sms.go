@@ -33,3 +33,11 @@ func SendSms(tplCode, mobile, code string) bool {
 func SendSmsRegCode(mobile, code string) bool {
 	return SendSms("SMS_155370082", mobile, code)
 }
+
+func SendSmsResetCode(mobile, code string) bool {
+	return SendSms("SMS_155370082", mobile, code)
+}
+
+func SendSmsLoginCode(mobile, code string) bool {
+	return SendSms("SMS_155370082", mobile, code)
+}
