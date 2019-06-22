@@ -60,6 +60,7 @@ type Player struct {
 	gorm.Model
 	Uid        uint                     // 用户编号
 	Nick       string                   // 昵称
+	Avatar     string                   // 用户头像
 	DeskId     int                      // 座位号
 	RoomId     uint                     // 房间编号
 	TotalScore int                      // 当前房间中游戏总分

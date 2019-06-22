@@ -193,7 +193,7 @@ func joinRoom(s *zero.Session, msg *zero.Message) {
 		return
 	}
 
-	err = srv.Room.Join(data.RoomId, uint(p.Uid), p.Nick)
+	err = srv.Room.Join(data.RoomId, uint(p.Uid))
 	if err != nil {
 		if err.Error() == "该房间不存在，或已解散" {
 			res = nil
@@ -336,7 +336,7 @@ func createRoom(s *zero.Session, msg *zero.Message) {
 		return
 	}
 
-	err = srv.Room.Join(room.ID, room.Uid, p.Nick)
+	err = srv.Room.Join(room.ID, room.Uid)
 	if err != nil {
 		res = utils.Msg(err.Error()).Code(-10)
 		return

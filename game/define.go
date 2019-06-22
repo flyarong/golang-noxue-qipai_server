@@ -66,6 +66,8 @@ const (
 	BroadcastGameOver     // 游戏结束
 	ReqGameResult         // 请求游戏战绩
 	ResGameResult         // 返回游戏战绩
+	ReqGamePlayers        // 请求游戏玩家
+	ResGamePlayers
 )
 
 // 俱乐部相关
@@ -73,30 +75,30 @@ const (
 	ReqCreateClub = iota + 401 // 创建俱乐部
 	ResCreateClub
 
-	ReqClub // 获取指定俱乐部信息
+	ReqClub  // 获取指定俱乐部信息
 	ResClub
 
-	ReqClubs // 列出加入的俱乐部
+	ReqClubs  // 列出加入的俱乐部
 	ResClubs
 
-	ReqExitClub // 请求退出俱乐部
+	ReqExitClub  // 请求退出俱乐部
 	ResExitClub
 
-	ReqDelClub // 解散俱乐部
+	ReqDelClub  // 解散俱乐部
 	BroadcastDelClub
 
-	ReqEditClub // 修改俱乐部名称和公告
+	ReqEditClub  // 修改俱乐部名称和公告
 	BroadcastEditClub
 
-	ReqJoinClub // 加入俱乐部
+	ReqJoinClub  // 加入俱乐部
 	BroadcastJoinClub
 
-	ReqClubUsers // users会员列表
+	ReqClubUsers  // users会员列表
 	ResClubUsers
 
-	ReqEditClubUser // 编辑会员状态：action 设为管理(admin) 取消管理(-admin)  冻结(disable) 取消冻结(-disable) 设为代付(pay) 取消代付(-pay) 审核通过用户(add)  移除用户(-add)
+	ReqEditClubUser  // 编辑会员状态：action 设为管理(admin) 取消管理(-admin)  冻结(disable) 取消冻结(-disable) 设为代付(pay) 取消代付(-pay) 审核通过用户(add)  移除用户(-add)
 	ResEditClubUser
 
-	ReqCreateClubRoom // 创建俱乐部房间
+	ReqCreateClubRoom  // 创建俱乐部房间
 	ResCreateClubRoom
 )

@@ -195,7 +195,7 @@ func (this *roomSrv) SitDown(rid, uid uint) (roomId uint, deskId int, err error)
 	return
 }
 
-func (this *roomSrv) Join(rid, uid uint, nick string) (err error) {
+func (this *roomSrv) Join(rid, uid uint) (err error) {
 
 	room, e := dao.Room.Get(rid)
 	if e != nil {
@@ -221,10 +221,16 @@ func (this *roomSrv) Join(rid, uid uint, nick string) (err error) {
 		return
 	}
 
+	user, e := dao.User.Get(uid)
+	if e != nil {
+		err = e
+		return
+	}
 	ru := model.Player{
 		Uid:    uid,
 		RoomId: rid,
-		Nick:   nick,
+		Nick:   user.Nick,
+		Avatar: user.Avatar,
 	}
 
 	dao.Db().Save(&ru)

@@ -98,7 +98,7 @@ func reqCreateClubRoom(s *zero.Session, msg *zero.Message) {
 		return
 	}
 
-	err = srv.Room.Join(room.ID, room.Uid, p.Nick)
+	err = srv.Room.Join(room.ID, room.Uid)
 	if err != nil {
 		res = utils.Msg(err.Error()).Code(-10)
 		return

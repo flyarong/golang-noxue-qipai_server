@@ -18,7 +18,47 @@ func init() {
 	game.AddAuthHandler(game.ReqSetTimes, gameSetTimes)
 	game.AddAuthHandler(game.ReqSetScore, gameSetScore)
 	game.AddAuthHandler(game.ReqGameResult, reqGameResult)
+	game.AddAuthHandler(game.ReqGamePlayers, reqGamePlayers)
 
+}
+
+func reqGamePlayers(s *zero.Session, msg *zero.Message) {
+	type reqData struct {
+		RoomId uint `json:"roomId"`
+	}
+
+	res := utils.Msg("")
+	defer func() {
+		if res == nil {
+			return
+		}
+		res.Send(game.ResGamePlayers, s)
+	}()
+
+	var data reqData
+	err := json.Unmarshal(msg.GetData(), &data)
+	if err != nil {
+		res = utils.Msg(err.Error()).Code(-1)
+		return
+	}
+
+	type playersV struct {
+		Uid    uint   `json:"uid"`    // 用户编号
+		Nick   string `json:"nick"`   // 昵称
+		Avatar string `json:"avatar"` // 用户头像
+		DeskId int    `json:"deskId"` // 座位号
+	}
+	players := dao.Room.PlayersSitDown(data.RoomId)
+	var pvs []playersV
+	for _, v := range players {
+		pvs = append(pvs, playersV{
+			Uid:    v.Uid,
+			Nick:   v.Nick,
+			Avatar: v.Avatar,
+			DeskId: v.DeskId,
+		})
+	}
+	res.AddData("roomId", data.RoomId).AddData("players", pvs)
 }
 
 func reqGameResult(s *zero.Session, msg *zero.Message) {
@@ -57,7 +97,7 @@ func reqGameResult(s *zero.Session, msg *zero.Message) {
 		return
 	}
 
-	if len(players)<1{
+	if len(players) < 1 {
 		res = utils.Msg("没有更多历史战绩!").Code(-1)
 		return
 	}
@@ -90,10 +130,10 @@ func reqGameResult(s *zero.Session, msg *zero.Message) {
 
 	// 查询玩家信息
 	var ps []model.Player
-	ret = dao.Db().Unscoped().Where(&model.Player{RoomId: room.ID}).Find(&ps)
-	if ret.RecordNotFound() {
+	ret = dao.Db().Unscoped().Where("room_id=? and desk_id>0", room.ID).Find(&ps)
+	if ret.RowsAffected == 0 {
 		glog.Error(ret.Error)
-		res = utils.Msg("没有找到玩家的对局信息!").Code(-1)
+		res = utils.Msg("没有更多的战绩信息!").Code(-1)
 		return
 	}
 
