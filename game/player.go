@@ -10,7 +10,6 @@ var players map[uint]*Player
 
 func init() {
 	players = make(map[uint]*Player)
-
 	// 生成存储 玩家状态的表
 	dao.Db().AutoMigrate(&Player{})
 }
@@ -28,7 +27,6 @@ func (Player) TableName() string {
 
 // 有玩家加入
 func AddPlayer(s *zero.Session, p *Player) {
-
 	var player Player
 	res := dao.Db().Where("uid=?", p.Uid).First(&player)
 	// 如果找到，表示只是掉线了，重新关联上之前的player

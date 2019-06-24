@@ -190,7 +190,7 @@ func (this *roomSrv) SitDown(rid, uid uint) (roomId uint, deskId int, err error)
 
 	t := time.Now()
 	player.JoinedAt = &t
-	dao.Db().Save(&player)
+	dao.Db().Model(&player).Update(&model.Player{DeskId:deskId,JoinedAt:&t})
 
 	return
 }
@@ -203,6 +203,13 @@ func (this *roomSrv) Join(rid, uid uint) (err error) {
 		err = errors.New("该房间不存在，或已解散")
 		return
 	}
+
+	// 正在游戏的房间无法进入
+	if room.Status == enum.GamePlaying {
+		err = errors.New("该房间正在游戏中，无法进入!")
+		return
+	}
+
 	// 检测是不是退出后重新进入的玩家
 	players := dao.Room.PlayersSitDown(rid)
 	ok := false

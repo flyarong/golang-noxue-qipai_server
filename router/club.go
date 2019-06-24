@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/golang/glog"
 	"qipai/dao"
+	"qipai/domain"
 	"qipai/enum"
 	"qipai/game"
 	"qipai/model"
@@ -23,6 +24,64 @@ func init() {
 	game.AddAuthHandler(game.ReqDelClub, reqDelClub)
 	game.AddAuthHandler(game.ReqEditClubUser, reqEditClubUser)
 	game.AddAuthHandler(game.ReqCreateClubRoom, reqCreateClubRoom)
+	game.AddAuthHandler(game.ReqExitClub, reqExitClub)
+	game.AddAuthHandler(game.ReqClubRoomUsers, reqClubRoomUsers)
+	game.AddAuthHandler(game.ReqClubRooms, reqClubRooms)
+}
+
+func reqClubRooms(s *zero.Session, msg *zero.Message) {
+	type reqData struct {
+		ClubId  uint `json:"clubId"`
+	}
+	res := utils.Msg("")
+	defer func() {
+		if res == nil {
+			return
+		}
+		res.Send(game.ResClubRooms, s)
+	}()
+
+	var data reqData
+	err := json.Unmarshal(msg.GetData(), &data)
+	if err != nil {
+		res = utils.Msg(err.Error()).Code(-1)
+		return
+	}
+
+	var rvs []domain.ResRoomV
+	var rooms []model.Room
+	ret:=dao.Db().Where(model.Room{ClubId:data.ClubId}).Find(&rooms)
+	if ret.RowsAffected==0{
+		res.AddData("rooms",rvs)
+		return
+	}
+
+	for _,v:=range rooms{
+		var rv domain.ResRoomV
+		if !utils.Copy(v, &rv) {
+			res = utils.Msg("复制房间信息出错，请联系管理员").Code(-1)
+			return
+		}
+		rvs = append(rvs,rv)
+	}
+	res.AddData("rooms", rvs)
+}
+
+func reqClubRoomUsers(s *zero.Session, msg *zero.Message) {
+	type reqData struct {
+		RoomId  uint `json:"roomId"`
+	}
+
+}
+
+// 退出茶楼，把用户从茶楼在线列表中删除，无须返回成功与否
+func reqExitClub(s *zero.Session, msg *zero.Message) {
+	p, e := game.GetPlayerFromSession(s)
+	if e != nil {
+		glog.Error(e)
+		return
+	}
+	game.ClubPlayers.Del(p.Uid)
 }
 
 func reqCreateClubRoom(s *zero.Session, msg *zero.Message) {
@@ -79,7 +138,7 @@ func reqCreateClubRoom(s *zero.Session, msg *zero.Message) {
 	var r model.Room
 	ret := dao.Db().Where(&model.Room{ClubId: data.ClubId, TableId: data.TableId}).First(&r)
 	if !ret.RecordNotFound() {
-		res = utils.Msg("").AddData("roomId", r.ID)
+		res = utils.Msg("").AddData("clubId",r.ClubId).AddData("roomId", r.ID).AddData("uid",p.Uid)
 		return
 	}
 
@@ -104,7 +163,9 @@ func reqCreateClubRoom(s *zero.Session, msg *zero.Message) {
 		return
 	}
 
-	res = utils.Msg("").AddData("roomId", room.ID)
+	res = utils.Msg("").AddData("clubId",room.ClubId).AddData("roomId", room.ID).AddData("uid",p.Uid)
+	// 通知当前房间所属茶楼的所有正在茶楼的玩家，有新房间创建了
+	game.NotifyClubPlayers(game.ResCreateClubRoom,room.ID,utils.Msg("").AddData("uid",p.Uid))
 }
 
 func reqEditClubUser(s *zero.Session, msg *zero.Message) {
@@ -349,6 +410,7 @@ func reqJoinClub(s *zero.Session, msg *zero.Message) {
 	}
 
 	res.AddData("clubId", data.ClubId).AddData("uid", p.Uid)
+	game.ClubPlayers.Add(data.ClubId,p.Uid,s) // 添加当前玩家到俱乐部在线列表
 }
 
 func reqEditClub(s *zero.Session, msg *zero.Message) {

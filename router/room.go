@@ -85,12 +85,34 @@ func leaveRoom(s *zero.Session, msg *zero.Message) {
 		return
 	}
 
+	// 退出之前获取玩家座位信息
+	var player model.Player
+	ret := dao.Db().Where("desk_id>0 and uid=?", p.Uid).First(&player)
+	if ret.RowsAffected == 0 {
+		res = utils.Msg("当前玩家不在该房间，无须退出")
+		return
+	}
+
 	err = srv.Room.Exit(data.RoomId, uint(p.Uid))
 	if err != nil {
 		res = utils.Msg(err.Error()).Code(-1)
 		return
 	}
 	res = nil
+
+	// 通知茶楼所有在线用户，有人退出房间
+	room, _ := dao.Room.Get(data.RoomId)
+	if room.ClubId == 0 {
+		return
+	}
+	game.NotifyClubPlayers(
+		game.ResLeaveRoom,
+		data.RoomId,
+		utils.Msg("").
+			AddData("tableId", room.TableId).
+			AddData("uid", p.Uid).
+			AddData("deskId", player.DeskId),
+	)
 }
 
 func sit(s *zero.Session, msg *zero.Message) {
@@ -212,6 +234,7 @@ func joinRoom(s *zero.Session, msg *zero.Message) {
 
 	players := dao.Room.PlayersSitDown(data.RoomId)
 	var pvs []playerV
+	var me playerV // 我自己的座位信息
 	for _, v := range players {
 		var pv playerV
 		if !utils.Copy(v, &pv) {
@@ -219,25 +242,33 @@ func joinRoom(s *zero.Session, msg *zero.Message) {
 			return
 		}
 		pvs = append(pvs, pv)
+		if v.Uid == p.Uid {
+			me = pv
+		}
 	}
 	res.AddData("players", pvs)
+
+	// 通知茶楼在线用户，有人加入指定房间
+	room, _ := dao.Room.Get(data.RoomId)
+	if room.ClubId == 0 {
+		return
+	}
+	user, _ := dao.User.Get(p.Uid)
+	game.NotifyClubPlayers(
+		game.BroadcastJoinRoom,
+		data.RoomId,
+		utils.Msg("").
+			AddData("tableId", room.TableId).
+			AddData("uid", me.Uid).
+			AddData("deskId", me.DeskId).
+			AddData("avatar", user.Avatar),
+	)
 }
 
 func room(s *zero.Session, msg *zero.Message) {
 
 	type reqRoom struct {
-		Id uint `json:"id"`
-	}
-
-	type roomV struct {
-		ID        uint           `json:"id"`
-		Score     enum.ScoreType `json:"score"`     // 底分类型
-		Pay       enum.PayType   `json:"pay"`       // 支付方式
-		Current   int            `json:"current"`   // 当前第几局
-		Count     int            `json:"count"`     // 总共可以玩几局
-		Uid       uint           `json:"uid"`       // 房主用户编号
-		StartType enum.StartType `json:"startType"` // 游戏开始方式
-		Players   int            `json:"players"`   // 玩家个数
+		RoomId uint `json:"roomId"`
 	}
 
 	res := utils.Msg("")
@@ -255,17 +286,17 @@ func room(s *zero.Session, msg *zero.Message) {
 		return
 	}
 
-	room, err := dao.Room.Get(data.Id)
+	room, err := dao.Room.Get(data.RoomId)
 	if err != nil {
 		if err.Error() == "该房间不存在，或游戏已结束" {
 			res = nil
-			utils.Msg("房间超过10分钟未开始或已经结束，自动解散").AddData("id", data.Id).Send(game.ResDeleteRoom, s)
+			utils.Msg("房间超过10分钟未开始或已经结束，自动解散").AddData("id", data.RoomId).Send(game.ResDeleteRoom, s)
 			return
 		}
 		res = utils.Msg(err.Error()).Code(-1)
 		return
 	}
-	var rv roomV
+	var rv domain.ResRoomV
 	if !utils.Copy(room, &rv) {
 		res = utils.Msg("复制房间信息出错，请联系管理员").Code(-1)
 		return

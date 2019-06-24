@@ -70,27 +70,27 @@ const (
 	ResGamePlayers
 )
 
-// 俱乐部相关
+// 茶楼相关
 const (
-	ReqCreateClub = iota + 401 // 创建俱乐部
+	ReqCreateClub = iota + 401 // 创建茶楼
 	ResCreateClub
 
-	ReqClub  // 获取指定俱乐部信息
+	ReqClub  // 获取指定茶楼信息
 	ResClub
 
-	ReqClubs  // 列出加入的俱乐部
+	ReqClubs  // 列出加入的茶楼
 	ResClubs
 
-	ReqExitClub  // 请求退出俱乐部
+	ReqExitClub  // 请求退出茶楼
 	ResExitClub
 
-	ReqDelClub  // 解散俱乐部
+	ReqDelClub  // 解散茶楼
 	BroadcastDelClub
 
-	ReqEditClub  // 修改俱乐部名称和公告
+	ReqEditClub  // 修改茶楼名称和公告
 	BroadcastEditClub
 
-	ReqJoinClub  // 加入俱乐部
+	ReqJoinClub  // 加入茶楼
 	BroadcastJoinClub
 
 	ReqClubUsers  // users会员列表
@@ -99,6 +99,12 @@ const (
 	ReqEditClubUser  // 编辑会员状态：action 设为管理(admin) 取消管理(-admin)  冻结(disable) 取消冻结(-disable) 设为代付(pay) 取消代付(-pay) 审核通过用户(add)  移除用户(-add)
 	ResEditClubUser
 
-	ReqCreateClubRoom  // 创建俱乐部房间
+	ReqCreateClubRoom  // 创建茶楼房间
 	ResCreateClubRoom
+
+	ReqClubRooms // 获取指定俱乐部所有房间
+	ResClubRooms
+
+	ReqClubRoomUsers // 请求茶楼中房间的所有玩家座位信息
+	ResClubRoomUsers
 )

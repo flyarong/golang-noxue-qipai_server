@@ -65,6 +65,7 @@ func HandleDisconnect(s *zero.Session, err error) {
 			return
 		}
 		RemovePlayer(p.Uid)
+		ClubPlayers.Del(p.Uid) // 从俱乐部在线列表中删除
 		dao.Db().Save(p)
 	}
 }
