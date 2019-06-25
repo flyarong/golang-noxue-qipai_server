@@ -117,7 +117,7 @@ func leaveRoom(s *zero.Session, msg *zero.Message) {
 
 func sit(s *zero.Session, msg *zero.Message) {
 	type reqData struct {
-		Id uint `json:"id"`
+		RoomId uint `json:"roomId"`
 	}
 
 	res := utils.Msg("")
@@ -142,7 +142,7 @@ func sit(s *zero.Session, msg *zero.Message) {
 		return
 	}
 
-	roomId, deskId, e := srv.Room.SitDown(data.Id, uint(p.Uid))
+	roomId, deskId, e := srv.Room.SitDown(data.RoomId, uint(p.Uid))
 	if e != nil {
 		res = utils.Msg(e.Error()).Code(-1).AddData("roomId", roomId)
 		return
@@ -156,7 +156,7 @@ func sit(s *zero.Session, msg *zero.Message) {
 		TotalScore int  `json:"totalScore"` // 玩家总分
 	}
 
-	players := dao.Room.PlayersSitDown(data.Id)
+	players := dao.Room.PlayersSitDown(data.RoomId)
 	var pvs []playerV
 	for _, v := range players {
 		var pv playerV
@@ -179,12 +179,29 @@ func sit(s *zero.Session, msg *zero.Message) {
 			continue
 		}
 		utils.Msg("").
-			AddData("roomId", data.Id).
+			AddData("roomId", data.RoomId).
 			AddData("uid", p.Uid).
 			AddData("deskId", deskId).Send(game.BroadcastSitRoom, otherPlayer.Session)
 	}
 
 	res.AddData("uid", p.Uid).AddData("players", pvs)
+
+	// 通知茶楼在线用户，有人加入指定房间
+	room, _ := dao.Room.Get(data.RoomId)
+	if room.ClubId == 0 {
+		return
+	}
+	user, _ := dao.User.Get(p.Uid)
+	game.NotifyClubPlayers(
+		game.BroadcastSitRoom,
+		data.RoomId,
+		utils.Msg("").
+			AddData("tableId", room.TableId).
+			AddData("uid", p.Uid).
+			AddData("nick", p.Nick).
+			AddData("deskId", deskId).
+			AddData("avatar", user.Avatar),
+	)
 }
 
 func joinRoom(s *zero.Session, msg *zero.Message) {
@@ -234,7 +251,6 @@ func joinRoom(s *zero.Session, msg *zero.Message) {
 
 	players := dao.Room.PlayersSitDown(data.RoomId)
 	var pvs []playerV
-	var me playerV // 我自己的座位信息
 	for _, v := range players {
 		var pv playerV
 		if !utils.Copy(v, &pv) {
@@ -242,27 +258,8 @@ func joinRoom(s *zero.Session, msg *zero.Message) {
 			return
 		}
 		pvs = append(pvs, pv)
-		if v.Uid == p.Uid {
-			me = pv
-		}
 	}
 	res.AddData("players", pvs)
-
-	// 通知茶楼在线用户，有人加入指定房间
-	room, _ := dao.Room.Get(data.RoomId)
-	if room.ClubId == 0 {
-		return
-	}
-	user, _ := dao.User.Get(p.Uid)
-	game.NotifyClubPlayers(
-		game.BroadcastJoinRoom,
-		data.RoomId,
-		utils.Msg("").
-			AddData("tableId", room.TableId).
-			AddData("uid", me.Uid).
-			AddData("deskId", me.DeskId).
-			AddData("avatar", user.Avatar),
-	)
 }
 
 func room(s *zero.Session, msg *zero.Message) {

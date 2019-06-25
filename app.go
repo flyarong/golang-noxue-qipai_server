@@ -2,12 +2,14 @@ package main
 
 import (
 	"flag"
-	"github.com/golang/glog"
 	"net/http"
 	"os"
 	"qipai/game"
 	_ "qipai/router"
+	"time"
 	"zero"
+
+	"github.com/golang/glog"
 )
 
 var debug bool
@@ -23,7 +25,7 @@ func main() {
 
 		http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 		err := http.ListenAndServe(":9988", nil)
-		if err!=nil{
+		if err != nil {
 			glog.Fatalln(err)
 		}
 	}()
@@ -34,7 +36,7 @@ func main() {
 		glog.Fatal(err)
 	}
 
-	//ss.SetHeartBeat(5*time.Second, 10*time.Second)
+	ss.SetHeartBeat(5*time.Second, 10*time.Second)
 
 	ss.RegMessageHandler(game.HandleMessage)
 	ss.RegConnectHandler(game.HandleConnect)
