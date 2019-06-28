@@ -204,11 +204,6 @@ func (this *roomSrv) Join(rid, uid uint) (err error) {
 		return
 	}
 
-	// 正在游戏的房间无法进入
-	if room.Status == enum.GamePlaying {
-		err = errors.New("该房间正在游戏中，无法进入!")
-		return
-	}
 
 	// 检测是不是退出后重新进入的玩家
 	players := dao.Room.PlayersSitDown(rid)
@@ -224,8 +219,25 @@ func (this *roomSrv) Join(rid, uid uint) (err error) {
 		return
 	}
 
+	// 如果已经是房间中的人，则直接返回，表示加入成功
 	if dao.Room.IsRoomPlayer(rid, uid) {
 		return
+	}
+
+	// 如果是俱乐部房间，检查是否属于该俱乐部，否则不能进入
+	if room.ClubId>0{
+		u,e:=dao.Club.GetUser(room.ClubId,uid)
+		if e!=nil {
+			err = e
+			return
+		}
+		if u.Status == enum.ClubUserWait{
+			err = errors.New("您的账号还没审核通过，无法加入房间!")
+			return
+		} else if u.Status == enum.ClubUserDisable{
+			err = errors.New("您的账号已被当前茶楼老板冻结，无法加入该茶楼的房间!")
+			return
+		}
 	}
 
 	user, e := dao.User.Get(uid)

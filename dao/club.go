@@ -50,7 +50,7 @@ func (clubDao) DelClubUserByClubId(clubId uint) (err error) {
 func (clubDao) GetUser(clubId, uid uint)(user model.ClubUser, err error){
 	ret:=Db().Where(&model.ClubUser{ClubId:clubId,Uid:uid}).First(&user)
 	if ret.RecordNotFound(){
-		err = errors.New("没有在茶楼中找到该用户")
+		err = errors.New("您不是该茶楼的用户！")
 	}
 	return
 }
