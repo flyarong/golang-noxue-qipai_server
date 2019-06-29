@@ -47,6 +47,16 @@ func (clubDao) DelClubUserByClubId(clubId uint) (err error) {
 	return
 }
 
+// 删除俱乐部玩家
+func (clubDao)DelClubUser(clubId, uid uint)(err error) {
+	ret := Db().Unscoped().Where("club_id=? and uid=?", clubId, uid).Delete(&model.ClubUser{})
+	if ret.RowsAffected == 0 {
+		err = errors.New("删除茶楼用户失败")
+		return
+	}
+	return
+}
+
 func (clubDao) GetUser(clubId, uid uint)(user model.ClubUser, err error){
 	ret:=Db().Where(&model.ClubUser{ClubId:clubId,Uid:uid}).First(&user)
 	if ret.RecordNotFound(){

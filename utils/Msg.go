@@ -41,6 +41,10 @@ func (this *Message) ToBytes() []byte {
 	return jsonData
 }
 
+func (this *Message) GetData() map[string]interface{}{
+	return this.data
+}
+
 // 发送到客户端
 func (this *Message) Send(msgID int32, s *zero.Session) (err error) {
 	message := zero.NewMessage(msgID, this.ToBytes())

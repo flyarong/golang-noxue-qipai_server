@@ -17,6 +17,10 @@ const (
 	ResCode          // 返回验证码发送结果
 	ReqLoginByToken  // 通过token登录
 	ResLoginByToken
+	ReqNotice  // 请求公告通知信息
+	ResNotice
+	ReqRollText // 获取滚动字幕内容
+	ResRollText
 )
 
 // 房间相关
@@ -102,9 +106,9 @@ const (
 	ReqCreateClubRoom  // 创建茶楼房间
 	ResCreateClubRoom
 
-	ReqClubRooms // 获取指定俱乐部所有房间
+	ReqClubRooms  // 获取指定俱乐部所有房间
 	ResClubRooms
 
-	ReqClubRoomUsers // 请求茶楼中房间的所有玩家座位信息
+	ReqClubRoomUsers  // 请求茶楼中房间的所有玩家座位信息
 	ResClubRoomUsers
 )

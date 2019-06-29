@@ -2,8 +2,7 @@ package main
 
 import (
 	"flag"
-	"net/http"
-	"os"
+	"qipai/controller"
 	"qipai/game"
 	_ "qipai/router"
 	"time"
@@ -21,10 +20,7 @@ func init() {
 
 func main() {
 	go func() {
-		os.Mkdir("static", 0777)
-
-		http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
-		err := http.ListenAndServe(":9988", nil)
+		err := controller.R.Run(":9988")
 		if err != nil {
 			glog.Fatalln(err)
 		}

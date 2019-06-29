@@ -308,6 +308,9 @@ func (this *clubSrv) DelClub(clubId, uid uint)(err error){
 		return
 	}
 
+	// 删除属于茶楼的房间
+	dao.Db().Where(&model.Room{ClubId:clubId}).Delete(model.Room{})
+
 	// 通知所有在线的玩家，房间解散
 	for _,v:=range users{
 		p:=game.GetPlayer(v.Uid)

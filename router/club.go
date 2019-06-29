@@ -2,7 +2,6 @@ package router
 
 import (
 	"encoding/json"
-	"errors"
 	"github.com/golang/glog"
 	"qipai/dao"
 	"qipai/domain"
@@ -115,12 +114,43 @@ func reqClubRoomUsers(s *zero.Session, msg *zero.Message) {
 
 // 退出茶楼，把用户从茶楼在线列表中删除，无须返回成功与否
 func reqExitClub(s *zero.Session, msg *zero.Message) {
+	type reqData struct {
+		ClubId  uint `json:"clubId"`
+	}
+	res := utils.Msg("")
+	defer func() {
+		if res == nil {
+			return
+		}
+		res.Send(game.ResExitClub, s)
+	}()
+
+	var data reqData
+	err := json.Unmarshal(msg.GetData(), &data)
+	if err != nil {
+		res = utils.Msg(err.Error()).Code(-1)
+		return
+	}
+
 	p, e := game.GetPlayerFromSession(s)
 	if e != nil {
 		glog.Error(e)
 		return
 	}
-	game.ClubPlayers.Del(p.Uid)
+	// 如果是暂时离开俱乐部，就简单的从在线列表删除该玩家即可
+	if data.ClubId==0{
+		game.ClubPlayers.Del(p.Uid)
+		res = nil
+		return
+	}
+
+	// 如果是退出俱乐部，就从俱乐部玩家中移除
+	e=dao.Club.DelClubUser(data.ClubId,p.Uid)
+	if e!=nil {
+		res = utils.Msg(e.Error()).Code(-1)
+		return
+	}
+	res.AddData("clubId", data.ClubId).AddData("uid", p.Uid)
 }
 
 func reqCreateClubRoom(s *zero.Session, msg *zero.Message) {
@@ -159,10 +189,10 @@ func reqCreateClubRoom(s *zero.Session, msg *zero.Message) {
 		return
 	}
 	if user.Status == enum.ClubUserDisable {
-		err = errors.New("您已被管理员冻结，请联系管理员解除！")
+		res = utils.Msg("您已被茶楼管理员冻结，请联系茶楼管理员！").Code(-1)
 		return
 	} else if user.Status == enum.ClubUserWait {
-		err = errors.New("您的账号正在等待管理员审核中！")
+		res = utils.Msg("您的账号正在等待管理员审核中，请联系管理员解除！").Code(-1)
 		return
 	}
 

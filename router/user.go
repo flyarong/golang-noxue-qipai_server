@@ -14,6 +14,34 @@ import (
 func init() {
 	game.AddAuthHandler(game.ReqUserInfo, userInfo)
 	game.AddHandler(game.ReqReset, reqReset)
+	game.AddAuthHandler(game.ReqNotice, reqNotice)
+	game.AddAuthHandler(game.ReqRollText, reqRollText)
+}
+
+func reqRollText(s *zero.Session, msg *zero.Message) {
+	res := utils.Msg("")
+	defer func() {
+		if res == nil {
+			return
+		}
+		res.Send(game.ResRollText, s)
+	}()
+
+	rollText := utils.Lv.Get("user_rollText")
+	res.AddData("rollText", rollText)
+}
+
+func reqNotice(s *zero.Session, msg *zero.Message) {
+	res := utils.Msg("")
+	defer func() {
+		if res == nil {
+			return
+		}
+		res.Send(game.ResNotice, s)
+	}()
+
+	notice := utils.Lv.Get("user_notice")
+	res.AddData("notice", notice)
 }
 
 func reqReset(s *zero.Session, msg *zero.Message) {
@@ -47,8 +75,8 @@ func reqReset(s *zero.Session, msg *zero.Message) {
 		return
 	}
 
-	e:=srv.User.ChangePass(data.UserType, data.Name, data.Pass)
-	if e!=nil {
+	e := srv.User.ChangePass(data.UserType, data.Name, data.Pass)
+	if e != nil {
 		res = utils.Msg(e.Error()).Code(-1)
 		return
 	}
