@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/dgrijalva/jwt-go"
+	"github.com/golang/glog"
 	"qipai/dao"
 	"qipai/enum"
 	"qipai/model"
@@ -29,14 +30,18 @@ func (userSrv) Register(user *model.User) (err error) {
 	}
 	// 检查授权信息是否存在
 	a := model.Auth{UserType: user.Auths[0].UserType, Name: user.Auths[0].Name}
-	dao.Db().Where(&a).First(&a)
+	ret:=dao.Db().Where(&a).First(&a)
 
-	if a.Model.ID > 0 {
+	if !ret.RecordNotFound() {
 		err = errors.New(a.Name + " 已被注册，请更换一个账号")
 		return
 	}
 
-	dao.Db().Create(&user)
+	ret =dao.Db().Create(&user)
+	if ret.Error!=nil {
+		glog.Error(ret.Error)
+		err = errors.New("注册失败")
+	}
 	return
 }
 
@@ -66,20 +71,27 @@ func (userSrv) Bind(uid uint, auth *model.Auth) (err error) {
 
 func (this userSrv) Login(auth *model.Auth) (token string,u model.User, err error) {
 	var a model.Auth
-	dao.Db().Where(&model.Auth{UserType: auth.UserType, Name: auth.Name}).First(&a)
+	res:=dao.Db().Where(&model.Auth{UserType: auth.UserType, Name: auth.Name}).First(&a)
 
-	if a.ID == 0 {
+	if res.RecordNotFound() {
 		err = errors.New("账号不存在，请确认登录类型和账号正确")
 		return
 	}
+	if a.UserType == enum.MobilePass{
+		if !utils.PassCompare(auth.Pass, a.Pass) {
+			err = errors.New("密码不正确")
+			return
+		}
+	}else if a.UserType == enum.WeChat{
 
-	if !utils.PassCompare(auth.Pass, a.Pass) {
-		err = errors.New("密码不正确")
+	} else{
+		err = errors.New("不支持的登录方式")
 		return
 	}
 
 
-	res:=dao.Db().Where(a.UserId).First(&u)
+
+	res=dao.Db().Where(a.UserId).First(&u)
 	if res.Error!=nil {
 		err = errors.New("查询用户信息出错")
 		return

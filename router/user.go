@@ -3,6 +3,7 @@ package router
 import (
 	"encoding/json"
 	"github.com/golang/glog"
+	"qipai/dao"
 	"qipai/enum"
 	"qipai/game"
 	"qipai/srv"
@@ -16,6 +17,49 @@ func init() {
 	game.AddHandler(game.ReqReset, reqReset)
 	game.AddAuthHandler(game.ReqNotice, reqNotice)
 	game.AddAuthHandler(game.ReqRollText, reqRollText)
+	game.AddAuthHandler(game.ReqDefaultVoice, reqDefaultVoice)
+}
+
+func reqDefaultVoice(s *zero.Session, msg *zero.Message) {
+	type reqData struct {
+		RoomId uint `json:"roomId"`
+		DeskId int `json:"deskId"`
+		VoiceId int `json:"voiceId"`
+		Sex int `json:"sex"`
+	}
+
+	res := utils.Msg("")
+	defer func() {
+		if res == nil {
+			return
+		}
+		res.Send(game.BroadcastDefaultVoice, s)
+	}()
+
+	var data reqData
+	err := json.Unmarshal(msg.GetData(), &data)
+	if err != nil {
+		glog.Error(err)
+		res = utils.Msg("请求的数据格式不正确").Code(-1)
+		return
+	}
+
+	players := dao.Room.PlayersSitDown(data.RoomId)
+	// 通知房间中所有的玩家，我说话了
+	for _, v := range players {
+		otherPlayer := game.GetPlayer(v.Uid)
+		if otherPlayer == nil {
+			glog.Infoln("通知其他用户有用户坐下失败")
+			continue
+		}
+		_=utils.Msg("").
+			AddData("roomId", data.RoomId).
+			AddData("deskId", data.DeskId).
+			AddData("voiceId", data.VoiceId).
+			AddData("sex", data.Sex).
+			Send(game.BroadcastDefaultVoice, otherPlayer.Session)
+	}
+	res = nil
 }
 
 func reqRollText(s *zero.Session, msg *zero.Message) {
@@ -87,10 +131,11 @@ func reqReset(s *zero.Session, msg *zero.Message) {
 func userInfo(s *zero.Session, msg *zero.Message) {
 	type userV struct {
 		ID        uint      `json:"id"`
-		Nick      string    `gorm:"size:20" json:"nick"`
-		Avatar    string    `gorm:"size:120" json:"avatar"`
-		Ip        string    `gorm:"size:20" json:"ip"`
-		Address   string    `gorm:"size:50" json:"address"`
+		Nick      string    `json:"nick"`
+		Avatar    string    `json:"avatar"`
+		Sex       int       `json:"sex"`
+		Ip        string    `json:"ip"`
+		Address   string    `json:"address"`
 		Card      int       `json:"card"`
 		CreatedAt time.Time `json:"createdAt"`
 	}

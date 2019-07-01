@@ -12,6 +12,7 @@ import (
 	"qipai/model"
 	"qipai/srv"
 	"qipai/utils"
+	"qipai/wechat"
 	"regexp"
 	"strconv"
 	"strings"
@@ -24,6 +25,7 @@ func init() {
 	game.AddHandler(game.ReqReg, reg)
 	game.AddHandler(game.ReqCode, code)
 	game.AddHandler(game.ReqLoginByToken, loginByToken)
+	game.AddHandler(game.ReqLoginByWeChatCode, loginByCode)
 }
 
 func login(s *zero.Session, msg *zero.Message) {
@@ -102,7 +104,7 @@ func code(s *zero.Session, msg *zero.Message) {
 
 	resCode := utils.Msg("")
 	defer func() {
-		if resCode ==nil{
+		if resCode == nil {
 			return
 		}
 		resCode.Send(game.ResCode, s)
@@ -125,10 +127,10 @@ func code(s *zero.Session, msg *zero.Message) {
 		return
 	}
 
-	oldCode :=utils.Lv.Get("code_"+reqCode.Phone)
+	oldCode := utils.Lv.Get("code_" + reqCode.Phone)
 	if oldCode != "" {
-		if config.Config.Debug{
-			glog.Infoln("验证码:",oldCode)
+		if config.Config.Debug {
+			glog.Infoln("验证码:", oldCode)
 		}
 		return
 	}
@@ -204,4 +206,78 @@ func loginByToken(s *zero.Session, msg *zero.Message) {
 	}
 
 	res.AddData("token", newToken)
+}
+
+func loginByCode(s *zero.Session, msg *zero.Message) {
+	var res = utils.Msg("")
+	defer func() {
+		if glog.V(3) {
+			glog.Infoln("token登录:", res.ToJson())
+		}
+		res.Send(game.ResLoginByWeChatCode, s)
+	}()
+	type ReqData struct {
+		Code string `json:"code"`
+	}
+	var data ReqData
+	err := json.Unmarshal(msg.GetData(), &data)
+	if err != nil {
+		res = utils.Msg(err.Error()).Code(-1)
+		return
+	}
+
+	if data.Code == "" {
+		res = utils.Msg("缺少code参数").Code(-2)
+		return
+	}
+	wx := &wechat.WxConfig{
+		AppID:  config.Config.Wechat.Id,
+		Secret: config.Config.Wechat.Secret,
+	}
+
+	token, err := wx.GetWxAccessToken(data.Code)
+	if err != nil {
+		glog.Error(err)
+		res = utils.Msg("登录失败").Code(-1)
+		return
+	}
+	userInfo,err:=token.GetUserInfo()
+	if err != nil {
+		glog.Error(err)
+		res = utils.Msg("登录失败").Code(-1)
+		return
+	}
+
+LOGIN:
+	t, u, e := srv.User.Login(&model.Auth{
+		UserType: enum.WeChat,
+		Name:     userInfo.UnionID,
+	})
+	if e != nil {
+		// 如果没有找到，就自动注册
+		if e.Error() == "账号不存在，请确认登录类型和账号正确" {
+			user := model.User{Nick: userInfo.NickName,Sex:int(userInfo.Sex), Ip: s.GetConn().GetName(), Address: utils.GetAddress(strings.Split(s.GetConn().GetName(), ":")[0]),
+				Auths: []model.Auth{{Name: userInfo.UnionID, UserType: enum.WeChat, Pass: token.RefreshToken, Verified: true,Thirdly:true}}}
+			user.Avatar= userInfo.HeadImgURL
+			if user.Avatar == ""{
+				user.Avatar = fmt.Sprintf("/avatar/Avatar%d.png", rand.Intn(199))
+			}
+			err = srv.User.Register(&user)
+			if err != nil {
+				res = utils.Msg(err.Error()).Code(-1)
+				return
+			}
+			goto LOGIN
+		}
+		glog.Error(e)
+		res = utils.Msg(e.Error()).Code(-1)
+		return
+	}
+
+	game.AddPlayer(s, &game.Player{
+		Uid:  u.ID,
+		Nick: u.Nick,
+	})
+
+	res.AddData("token", t).AddData("accessToken",token.AccessToken)
 }

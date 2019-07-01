@@ -14,6 +14,7 @@ type Conf struct {
 	Db     Db
 	Lvdb   string
 	Sms    Sms
+	Wechat Wechat
 }
 
 type Db struct {
@@ -26,6 +27,11 @@ type Sms struct {
 	Sign         string
 	RegTplCode   string
 	LoginTplCode string
+}
+
+type Wechat struct {
+	Id     string
+	Secret string
 }
 
 func init() {

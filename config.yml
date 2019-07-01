@@ -9,3 +9,6 @@ sms:
   sign: 不学网  # 签名
   reg_tpl_code: SMS_155370082 # 注册模板编号
   loginTplCode: SMS_119082858 # 登录模板编号
+wechat:
+  id: wx98734283bb3e480f
+  secret: e4fb077a6678bbb1101aec0791fde3b9
