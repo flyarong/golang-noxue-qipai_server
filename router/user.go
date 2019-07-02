@@ -17,6 +17,7 @@ func init() {
 	game.AddHandler(game.ReqReset, reqReset)
 	game.AddAuthHandler(game.ReqNotice, reqNotice)
 	game.AddAuthHandler(game.ReqRollText, reqRollText)
+	game.AddAuthHandler(game.ReqShareText, reqShareText)
 	game.AddAuthHandler(game.ReqDefaultVoice, reqDefaultVoice)
 }
 
@@ -73,6 +74,19 @@ func reqRollText(s *zero.Session, msg *zero.Message) {
 
 	rollText := utils.Lv.Get("user_rollText")
 	res.AddData("rollText", rollText)
+}
+
+func reqShareText(s *zero.Session, msg *zero.Message) {
+	res := utils.Msg("")
+	defer func() {
+		if res == nil {
+			return
+		}
+		res.Send(game.ResShareText, s)
+	}()
+
+	shareText := utils.Lv.Get("user_shareText")
+	res.AddData("shareText", shareText)
 }
 
 func reqNotice(s *zero.Session, msg *zero.Message) {

@@ -18,6 +18,7 @@ func user(){
 	ar.Use(middleware.JWTAuth())
 	ar.POST("/notice", postNoticeFunc)
 	ar.POST("/rollText", postRollText)
+	ar.POST("/shareText", postShareText)
 }
 
 func postRollText(c *gin.Context) {
@@ -38,6 +39,22 @@ func postRollText(c *gin.Context) {
 		utils.Msg("").AddData("rollText", form.RollText).Send(game.ResRollText,v.Session)
 	}
 	c.JSON(http.StatusOK, utils.Msg("发布滚动字幕成功").GetData())
+}
+
+func postShareText(c *gin.Context) {
+	type ReqForm struct {
+		ShareText     string        `form:"shareText" json:"shareText" binding:"required"`
+	}
+	var form ReqForm
+	if err := c.ShouldBind(&form); err != nil {
+		c.JSON(http.StatusBadRequest, utils.Msg(err.Error()).Code(-1).GetData())
+		return
+	}
+	err :=utils.Lv.Put("user_shareText", form.ShareText)
+	if err!=nil {
+		c.JSON(http.StatusBadRequest, utils.Msg(err.Error()).Code(-1).GetData())
+	}
+	c.JSON(http.StatusOK, utils.Msg("更新分享内容成功").GetData())
 }
 
 func postNoticeFunc(c *gin.Context) {
