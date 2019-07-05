@@ -90,14 +90,13 @@ func reqGameResult(s *zero.Session, msg *zero.Message) {
 
 	// 根据page查找对应的玩家数据
 	var players []model.Player
-	ret := dao.Db().Unscoped().Where(&model.Player{Uid: p.Uid}).Order("deleted_at desc").Limit(1).Offset(data.Page - 1).Find(&players)
-	if ret.RecordNotFound() {
-		glog.Error(ret.Error)
+	ret := dao.Db().Unscoped().Where(&model.Player{Uid: p.Uid}).Where("desk_id>0").Order("deleted_at desc").Limit(1).Offset(data.Page - 1).Find(&players)
+	if len(players)<1 {
 		res = utils.Msg("您没有历史战绩!").Code(-1)
 		return
 	}
 
-	if len(players) < 1 {
+	if ret.RecordNotFound() {
 		res = utils.Msg("没有更多历史战绩!").Code(-1)
 		return
 	}

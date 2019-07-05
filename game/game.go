@@ -14,7 +14,7 @@ const (
 	ReadyState        = iota + 1 // 准备中
 	SelectBankerState            // 抢庄中
 	SetScoreState                // 下注中
-	ShowCardState                // 看牌比牌中
+	ShowCardState                // 看牌中
 	CompareCardState             // 比牌中
 	GameOverState                // 结束
 	GameDeletedState             // 游戏已删除状态

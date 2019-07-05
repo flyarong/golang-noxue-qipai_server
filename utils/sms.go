@@ -1,15 +1,16 @@
 package utils
 
 import (
+	"qipai/config"
+
 	"github.com/golang/glog"
 	alisms "github.com/noxue/alisms"
-	"qipai/config"
 )
 
 func SendSms(tplCode, mobile, code string) bool {
 
 	if config.Config.Debug {
-		glog.Infoln("发送的验证码为：",code)
+		glog.Infoln(mobile, "发送的验证码为：", code)
 		return true
 	}
 

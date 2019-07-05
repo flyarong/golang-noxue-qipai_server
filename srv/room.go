@@ -34,24 +34,23 @@ func deleteAllInvalidRooms() {
 		}
 
 		// 主要是处理中途关闭程序，启动后部分房间未到10分钟但未开始的情况
-		if time.Now().Sub(room.CreatedAt) < time.Minute*10 && room.ClubId == 0 && room.Status == enum.GameReady {
+		if time.Now().Sub(room.CreatedAt) < time.Minute*10 && room.Status == enum.GameReady {
 			go func(roomId uint) {
 				// 等待剩余的时间
 				time.Sleep(time.Minute*10 - time.Now().Sub(room.CreatedAt))
 				deleteExpiredRoom(roomId)
 			}(room.ID)
 		}
-
 	}
 }
 
 // 检查是否超时，超时返回true，表示可以删除了。
 func isRoomExpired(room *model.Room) bool {
 	// 超过10分钟，游戏没开始的房间，并且不是俱乐部房间，自动解散
-	return (time.Now().Sub(room.CreatedAt) >= time.Minute*10 && room.ClubId == 0 && room.Status == enum.GameReady)
+	return (time.Now().Sub(room.CreatedAt) >= time.Minute*10 && room.Status == enum.GameReady)
 }
 
-// 删除过期的房间，并通知客户端
+// 删除过期的房间
 func deleteExpiredRoom(roomId uint) (err error) {
 	var room model.Room
 	res := dao.Db().Find(&room, roomId)
@@ -75,7 +74,7 @@ func deletePlayersInRoom(roomId uint) (err error) {
 	var ps []model.Player
 	res := dao.Db().Where(&model.Player{RoomId: roomId}).Find(&ps)
 	if res.Error != nil {
-		err = errors.New(fmt.Sprint("查询房间对应的玩家失败，房间号：%d", roomId))
+		err = errors.New(fmt.Sprintf("查询房间对应的玩家失败，房间号：%d", roomId))
 		return
 	}
 	for _, v := range ps {
@@ -215,6 +214,11 @@ func (this *roomSrv) Join(rid, uid uint) (err error) {
 	}
 	// 游戏中无法加入,防止别人扫描哪些房间存在，游戏中的房间和不存在的提示信息一样
 	if room.Status == enum.GamePlaying && !ok {
+		// 如果是茶楼房间，那么提示正在游戏中
+		if room.ClubId>0{
+			err = errors.New("该茶楼正在游戏中，无法加入")
+			return
+		}
 		err = errors.New("该房间不存在")
 		return
 	}

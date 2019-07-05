@@ -66,3 +66,14 @@ func (gameDao) Player(rid, uid uint) (player model.Player, err error) {
 	}
 	return
 }
+
+// 第一个玩家
+func (gameDao)FirstPlayer(roomId uint)(player model.Player,err error){
+	res := Db().Where("room_id=? and desk_id > 0", roomId).Order("joined_at asc").First(&player)
+	if res.Error != nil || res.RecordNotFound() {
+		glog.Error(res.Error)
+		err = errors.New("该房间还没有玩家")
+		return
+	}
+	return
+}

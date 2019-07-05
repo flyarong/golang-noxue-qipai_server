@@ -40,9 +40,8 @@ func (this *gameSrv) Start(roomId, uid uint) (err error) {
 	} else if room.StartType == enum.StartFirst { // 首位开始
 		// 获取首位玩家
 		var p model.Player
-		res := dao.Db().Where("room_id=? and desk_id > 0", roomId).Order("joined_at asc").First(&p)
-		if res.Error != nil || res.RecordNotFound() {
-			err = errors.New("该房间还没有人，看到这个错误请联系管理员")
+		p, err = dao.Game.FirstPlayer(roomId)
+		if err != nil {
 			return
 		}
 		if p.Uid != uid {
@@ -74,7 +73,6 @@ func (this *gameSrv) Start(roomId, uid uint) (err error) {
 
 	return
 }
-
 
 func TakeUserCard(roomId, uid uint) (err error) {
 
