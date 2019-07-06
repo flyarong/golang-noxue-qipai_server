@@ -35,6 +35,7 @@ func init() {
 		&model.User{},
 		&model.Room{},
 		&model.Club{},
+		&model.ClubRoom{},
 		&model.ClubUser{},
 		&model.Player{},
 		&model.Event{},

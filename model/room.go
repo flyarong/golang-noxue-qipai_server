@@ -39,6 +39,12 @@ type Room struct {
 	TableId int             // 俱乐部第几桌
 }
 
+// 记录茶楼每一桌的属性，创建茶楼房间的时候，优先根据这个属性创建房间
+type ClubRoom struct {
+	ClubRoomBase
+	ClubId  uint            // 属于哪个俱乐部
+	TableId int             // 俱乐部第几桌
+}
 
 // 记录俱乐部的用户
 type ClubUser struct {

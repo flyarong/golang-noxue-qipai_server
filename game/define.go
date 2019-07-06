@@ -60,8 +60,6 @@ const (
 	ReqDeleteRoom
 	ResDeleteRoom
 
-	// 更改房间信息
-
 )
 
 // 游戏相关
@@ -120,4 +118,7 @@ const (
 
 	ReqClubRoomUsers  // 请求茶楼中房间的所有玩家座位信息
 	ResClubRoomUsers
+
+	ReqEditClubRoom // 更改房间信息
+	ResEditClubRoom
 )

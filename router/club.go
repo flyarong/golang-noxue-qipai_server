@@ -15,6 +15,7 @@ import (
 
 func init() {
 	game.AddAuthHandler(game.ReqCreateClub, createClub)
+	game.AddAuthHandler(game.ReqEditClubRoom, editClubRoom)
 	game.AddAuthHandler(game.ReqJoinClub, reqJoinClub)
 	game.AddAuthHandler(game.ReqClubs, reqClubs)
 	game.AddAuthHandler(game.ReqEditClub, reqEditClub)
@@ -115,7 +116,7 @@ func reqClubRoomUsers(s *zero.Session, msg *zero.Message) {
 // 退出茶楼，把用户从茶楼在线列表中删除，无须返回成功与否
 func reqExitClub(s *zero.Session, msg *zero.Message) {
 	type reqData struct {
-		ClubId  uint `json:"clubId"`
+		ClubId uint `json:"clubId"`
 	}
 	res := utils.Msg("")
 	defer func() {
@@ -137,16 +138,16 @@ func reqExitClub(s *zero.Session, msg *zero.Message) {
 		glog.Error(e)
 		return
 	}
-	// 如果是暂时离开俱乐部，就简单的从在线列表删除该玩家即可
-	if data.ClubId==0{
+	// 如果是暂时离开茶楼，就简单的从在线列表删除该玩家即可
+	if data.ClubId == 0 {
 		game.ClubPlayers.Del(p.Uid)
 		res = nil
 		return
 	}
 
-	// 如果是退出俱乐部，就从俱乐部玩家中移除
-	e=dao.Club.DelClubUser(data.ClubId,p.Uid)
-	if e!=nil {
+	// 如果是退出茶楼，就从茶楼玩家中移除
+	e = dao.Club.DelClubUser(data.ClubId, p.Uid)
+	if e != nil {
 		res = utils.Msg(e.Error()).Code(-1)
 		return
 	}
@@ -203,32 +204,51 @@ func reqCreateClubRoom(s *zero.Session, msg *zero.Message) {
 		return
 	}
 
-	// 如果tableId指定的位置已经存在房间，直接返回房间号
+	// 如果tableId指定的位置已经存在房间
 	var r model.Room
 	ret := dao.Db().Where(&model.Room{ClubId: data.ClubId, TableId: data.TableId}).First(&r)
 	if !ret.RecordNotFound() {
-		res = utils.Msg("").AddData("clubId", r.ClubId).AddData("roomId", r.ID).AddData("uid", p.Uid)
-		return
+		// 如果房里有人，直接返回房间号
+		if len(dao.Room.PlayersSitDown(r.ID))>0 {
+			res = utils.Msg("").AddData("clubId", r.ClubId).AddData("roomId", r.ID).AddData("uid", p.Uid)
+			return
+		}
+		// 否则删除房间重新创建
+		srv.Room.Delete(r.ID,r.Uid)
 	}
 
 	var room model.Room
-	if ok := utils.Copy(club, &room); !ok {
-		res = utils.Msg("房间信息赋值失败，请联系管理员").Code(-8)
-		return
+
+	// 获取特殊房间的信息
+	var cr model.ClubRoom
+	ret = dao.Db().Model(model.ClubRoom{}).Where("club_id=? and table_id=?", data.ClubId, data.TableId).First(&cr)
+	if ret.RecordNotFound() {
+		if ok := utils.Copy(club, &room); !ok {
+			res = utils.Msg("房间信息赋值失败，请联系管理员").Code(-1)
+			return
+		}
+	} else {
+		if ok := utils.Copy(cr, &room); !ok {
+			res = utils.Msg("房间信息赋值失败，请联系管理员").Code(-1)
+			return
+		}
 	}
 
 	room.ID = 0
 	room.TableId = data.TableId
 	room.ClubId = club.ID
+	room.Uid = club.Uid
+	room.BossNick = club.BossNick
+	room.Pay = club.Pay // 统一支付方式
 
 	if err := srv.Room.Create(&room); err != nil {
-		res = utils.Msg(err.Error()).Code(-9)
+		res = utils.Msg(err.Error()).Code(-1)
 		return
 	}
 
 	err = srv.Room.Join(room.ID, room.Uid)
 	if err != nil {
-		res = utils.Msg(err.Error()).Code(-10)
+		res = utils.Msg(err.Error()).Code(-1)
 		return
 	}
 
@@ -410,6 +430,13 @@ func reqDelClub(s *zero.Session, msg *zero.Message) {
 		res = utils.Msg(err.Error()).Code(-1)
 		return
 	}
+
+	ret:=dao.Db().Unscoped().Where("club_id=?",data.ClubId).Delete(model.ClubRoom{})
+	if ret.Error!=nil {
+		glog.Error(ret.Error)
+		res = utils.Msg("删除茶楼房间相关信息失败").Code(-1)
+		return
+	}
 	res = nil
 }
 
@@ -436,9 +463,9 @@ func reqClubUsers(s *zero.Session, msg *zero.Message) {
 		res = utils.Msg(e.Error()).Code(-1)
 		return
 	}
-	// 只能看到自己加入的俱乐部的用户列表
+	// 只能看到自己加入的茶楼的用户列表
 	if !srv.Club.IsClubUser(uint(p.Uid), data.ClubId) {
-		res = utils.Msg("你不属于该俱乐部，无法查看该俱乐部用户列表").Code(-1)
+		res = utils.Msg("你不属于该茶楼，无法查看该茶楼用户列表").Code(-1)
 		return
 	}
 
@@ -479,7 +506,7 @@ func reqJoinClub(s *zero.Session, msg *zero.Message) {
 	}
 
 	res.AddData("clubId", data.ClubId).AddData("uid", p.Uid)
-	game.ClubPlayers.Add(data.ClubId, p.Uid, s) // 添加当前玩家到俱乐部在线列表
+	game.ClubPlayers.Add(data.ClubId, p.Uid, s) // 添加当前玩家到茶楼在线列表
 }
 
 func reqEditClub(s *zero.Session, msg *zero.Message) {
@@ -520,22 +547,22 @@ func reqEditClub(s *zero.Session, msg *zero.Message) {
 
 func reqClub(s *zero.Session, msg *zero.Message) {
 	type clubV struct {
-		Id        uint           `json:"id" xml:"ID"`
-		Name      string         `json:"name"`      // 俱乐部名称
-		Check     bool           `json:"check"`     // 是否审查
-		Notice    string         `json:"notice"`    // 公告
-		RollText  string         `json:"rollText"`  // 俱乐部大厅滚动文字
-		Score     enum.ScoreType `json:"score"`     // 底分 以竖线分割的底分方式
-		Players   int            `json:"players"`   // 玩家个数
-		Count     int            `json:"count"`     // 局数
-		StartType enum.StartType `json:"startType"` // 游戏开始方式 只支持1 首位开始
-		Pay       enum.PayType   `json:"pay"`       // 付款方式 0 俱乐部老板付 1 AA
-		Times     enum.TimesType `json:"times"`     // 翻倍规则，预先固定的几个选择，比如：牛牛x3  牛九x2
-		Special   int            `json:"special"`   // 特殊牌型,二进制位表示特殊牌型翻倍规则，一共7类特殊牌型，用最低的7位二进制表示，1表示选中0表示没选中。
-		King      enum.KingType  `json:"king"`      // 王癞 0 无王癞  1 经典王癞 2 疯狂王癞
-		Uid       uint           `json:"uid"`       // 老板
-		Close     bool           `json:"close"`     // 是否打烊
-		PayerUid  uint           `json:"payerUid"`  // 代付用户id
+		Id        uint           `json:"id" xml:"ID"` // 在返回茶楼房间的时候，座位房间桌子编号
+		Name      string         `json:"name"`        // 茶楼名称
+		Check     bool           `json:"check"`       // 是否审查
+		Notice    string         `json:"notice"`      // 公告
+		RollText  string         `json:"rollText"`    // 茶楼大厅滚动文字
+		Score     enum.ScoreType `json:"score"`       // 底分 以竖线分割的底分方式
+		Players   int            `json:"players"`     // 玩家个数
+		Count     int            `json:"count"`       // 局数
+		StartType enum.StartType `json:"startType"`   // 游戏开始方式 只支持1 首位开始
+		Pay       enum.PayType   `json:"pay"`         // 付款方式 0 茶楼老板付 1 AA
+		Times     enum.TimesType `json:"times"`       // 翻倍规则，预先固定的几个选择，比如：牛牛x3  牛九x2
+		Special   int            `json:"special"`     // 特殊牌型,二进制位表示特殊牌型翻倍规则，一共7类特殊牌型，用最低的7位二进制表示，1表示选中0表示没选中。
+		King      enum.KingType  `json:"king"`        // 王癞 0 无王癞  1 经典王癞 2 疯狂王癞
+		Uid       uint           `json:"uid"`         // 老板
+		Close     bool           `json:"close"`       // 是否打烊
+		PayerUid  uint           `json:"payerUid"`    // 代付用户id
 		BossNick  string         `json:"boss"`
 	}
 
@@ -578,7 +605,26 @@ func reqClub(s *zero.Session, msg *zero.Message) {
 		return
 	}
 
-	res = utils.Msg("").AddData("club", cv)
+	// 获取特殊编辑过的桌子
+	var tables []clubV
+	var crs []model.ClubRoom
+	ret := dao.Db().Where("club_id=?", data.ClubId).Find(&crs)
+	if ret.Error != nil {
+		glog.Error(ret.Error)
+		res = utils.Msg("获取桌子信息出错").Code(-1)
+		return
+	}
+	for _, v := range crs {
+		var tv clubV
+		if !utils.Copy(v, &tv) {
+			res = utils.Msg("内容转换出错").Code(-1)
+			return
+		}
+		tv.Id = uint(v.TableId) // 在这里id用来保存table编号
+		tables = append(tables, tv)
+	}
+
+	res = utils.Msg("").AddData("club", cv).AddData("tables", tables)
 }
 
 func reqClubs(s *zero.Session, msg *zero.Message) {
@@ -684,7 +730,7 @@ func createClub(s *zero.Session, msg *zero.Message) {
 		return
 	}
 
-	// 如果是老板支付，就默认需要审核才能进入俱乐部
+	// 如果是老板支付，就默认需要审核才能进入茶楼
 	if club.Pay == enum.PayBoss {
 		club.Check = true
 	} else if club.Pay == enum.PayAA {
@@ -712,4 +758,105 @@ func createClub(s *zero.Session, msg *zero.Message) {
 	}
 
 	res = utils.Msg("").AddData("clubId", club.ID)
+}
+
+func editClubRoom(s *zero.Session, msg *zero.Message) {
+	res := utils.Msg("")
+	defer func() {
+		res.Send(game.ResEditClubRoom, s)
+	}()
+
+	type reqForm struct {
+		ClubId    uint           `json:"clubId"`
+		TableId   int            `json:"tableId"`
+		Players   int            `json:"players"`
+		Score     enum.ScoreType `json:"score"`
+		Pay       enum.PayType   `json:"pay"`
+		Count     int            `json:"count"`
+		StartType enum.StartType `json:"start"`
+		Times     int            `json:"times"`
+	}
+
+	var form reqForm
+	err := json.Unmarshal(msg.GetData(), &form)
+	if err != nil {
+		res = utils.Msg(err.Error()).Code(-1)
+		return
+	}
+
+	// 限制只能 10  20 30 局
+	if form.Count != 10 && form.Count != 20 && form.Count != 30 {
+		res = utils.Msg("局数[count]只能是10/20/30").Code(-2)
+		return
+	}
+
+	// 限制游戏开始方式
+	if form.StartType != 0 && form.StartType != 1 {
+		res = utils.Msg("开始方式[start]只能是0或1").Code(-3)
+		return
+	}
+
+	// 限制翻倍规则
+	if form.Times < 0 || form.Times > 4 {
+		res = utils.Msg("翻倍规则[times]取值不合法，只能在0-4之间").Code(-7)
+		return
+	}
+
+	// 底分取值不合法
+	if form.Score < 0 || form.Score > 5 {
+		res = utils.Msg("底分类型取值只能在0-5之间").Code(-7)
+		return
+	}
+
+	p, e := game.GetPlayerFromSession(s)
+	if e != nil {
+		glog.Error(e)
+		res = utils.Msg(e.Error()).Code(-1)
+		return
+	}
+
+	club, err := dao.Club.Get(form.ClubId)
+	if err != nil {
+		res = utils.Msg(err.Error()).Code(-1)
+		return
+	}
+
+	// 不是管理员或者茶楼老板，无法操作
+	if !srv.Club.IsBoss(p.Uid, club.ID) && !srv.Club.IsAdmin(p.Uid, club.ID) {
+		res = utils.Msg("只有茶楼老板或管理员可以编辑房间信息").Code(-1)
+		return
+	}
+
+	// 如果茶楼房间信息存在，就更新，不存在就添加
+	var n int
+	ret := dao.Db().Model(model.ClubRoom{}).Where("club_id=? and table_id=?", form.ClubId, form.TableId).Count(&n)
+	if ret.Error != nil {
+		glog.Error(ret.Error)
+		res = utils.Msg("获取茶楼房间信息出错").Code(-1)
+		return
+	}
+
+	var clubRoom model.ClubRoom
+	if ok := utils.Copy(form, &clubRoom); !ok {
+		res = utils.Msg("茶楼信息赋值失败，请联系管理员").Code(-8)
+		return
+	}
+
+	if n == 0 { // 不存在，则添加
+		ret = dao.Db().Create(&clubRoom)
+		if ret.Error != nil {
+			glog.Error(ret.Error)
+			res = utils.Msg("添加茶楼房间信息出错").Code(-1)
+			return
+		}
+	} else {
+		ret = dao.Db().Model(model.ClubRoom{}).Where("club_id=? and table_id=?", form.ClubId, form.TableId).Update(clubRoom)
+		if ret.Error != nil {
+			glog.Error(ret.Error)
+			res = utils.Msg("更新茶楼房间信息出错").Code(-1)
+			return
+		}
+	}
+	res.AddData("clubId", form.ClubId)
+	return
 }
