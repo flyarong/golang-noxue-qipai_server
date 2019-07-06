@@ -39,6 +39,7 @@ type Room struct {
 	TableId int             // 俱乐部第几桌
 }
 
+
 // 记录俱乐部的用户
 type ClubUser struct {
 	gorm.Model

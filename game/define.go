@@ -59,6 +59,9 @@ const (
 	// 解散房间
 	ReqDeleteRoom
 	ResDeleteRoom
+
+	// 更改房间信息
+
 )
 
 // 游戏相关

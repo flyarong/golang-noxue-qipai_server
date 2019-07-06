@@ -117,7 +117,7 @@ func StateSelectBanker(action fsm.ActionType, args ...interface{}) (nextState fs
 					}
 					auto, _ := g1.AutoPlayers[g.PlayerId]
 
-					waitTime := time.Second * 10
+					waitTime := time.Second * 5
 					if config.Config.Debug {
 						waitTime = time.Millisecond*100;
 					}
