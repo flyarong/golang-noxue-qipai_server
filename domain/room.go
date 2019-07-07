@@ -23,4 +23,5 @@ type ResRoomV struct {
 	ClubId    uint            `json:"clubId"`    // 属于哪个俱乐部
 	TableId   int             `json:"tableId"`   // 俱乐部第几桌
 	Status    enum.GameStatus `json:"status"`
+	Times     int             `json:"times"` // 翻倍方式
 }
