@@ -93,9 +93,6 @@ func leaveRoom(s *zero.Session, msg *zero.Message) {
 		return
 	}
 
-	// 是否是房主
-	playerFirst,_:=dao.Game.FirstPlayer(data.RoomId)
-
 	err = srv.Room.Exit(data.RoomId, uint(p.Uid))
 	if err != nil {
 		res = utils.Msg(err.Error()).Code(-1)
@@ -106,16 +103,7 @@ func leaveRoom(s *zero.Session, msg *zero.Message) {
 
 	// 如果是普通房间，到此结束，后面是茶楼房间的逻辑
 	room, _ := dao.Room.Get(data.RoomId)
-	if room.ClubId == 0 {
-		return
-	}
 
-	// 如果是房主退出，就把下一个进入房间的玩家设置为房主
-	newBoss:=uint(0)
-	if playerFirst.Uid == p.Uid{
-		playerFirst,_=dao.Game.FirstPlayer(room.ID)
-		newBoss = playerFirst.Uid
-	}
 
 	// 通知茶楼所有在线用户，有人退出房间
 	game.NotifyClubPlayers(
@@ -124,8 +112,7 @@ func leaveRoom(s *zero.Session, msg *zero.Message) {
 		utils.Msg("").
 			AddData("tableId", room.TableId).
 			AddData("uid", p.Uid).
-			AddData("deskId", player.DeskId).
-			AddData("newBoss", newBoss),
+			AddData("deskId", player.DeskId),
 	)
 
 

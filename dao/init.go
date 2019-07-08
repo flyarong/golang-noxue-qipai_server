@@ -1,16 +1,17 @@
 package dao
 
 import (
-	_ "github.com/go-sql-driver/mysql"
-	"github.com/jinzhu/gorm"
 	"log"
 	"qipai/config"
 	"qipai/model"
+
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/jinzhu/gorm"
 )
 
 var db *gorm.DB
 
-func Db() *gorm.DB{
+func Db() *gorm.DB {
 	return db.New()
 }
 
@@ -46,7 +47,7 @@ func init() {
 	if !Db().HasTable(&test{}) {
 		Db().Exec("alter table rooms AUTO_INCREMENT = 101010")
 		Db().Exec("alter table clubs AUTO_INCREMENT = 101010")
-		Db().Exec("alter table users AUTO_INCREMENT = 100000")
+		Db().Exec("alter table users AUTO_INCREMENT = 368751")
 	}
 
 	Db().AutoMigrate(&test{})

@@ -189,7 +189,7 @@ func (this *roomSrv) SitDown(rid, uid uint) (roomId uint, deskId int, err error)
 
 	t := time.Now()
 	player.JoinedAt = &t
-	dao.Db().Model(&player).Update(&model.Player{DeskId:deskId,JoinedAt:&t})
+	dao.Db().Model(&player).Update(&model.Player{DeskId: deskId, JoinedAt: &t})
 
 	return
 }
@@ -203,7 +203,6 @@ func (this *roomSrv) Join(rid, uid uint) (err error) {
 		return
 	}
 
-
 	// 检测是不是退出后重新进入的玩家
 	players := dao.Room.PlayersSitDown(rid)
 	ok := false
@@ -215,7 +214,7 @@ func (this *roomSrv) Join(rid, uid uint) (err error) {
 	// 游戏中无法加入,防止别人扫描哪些房间存在，游戏中的房间和不存在的提示信息一样
 	if room.Status == enum.GamePlaying && !ok {
 		// 如果是茶楼房间，那么提示正在游戏中
-		if room.ClubId>0{
+		if room.ClubId > 0 {
 			err = errors.New("该茶楼正在游戏中，无法加入")
 			return
 		}
@@ -229,16 +228,16 @@ func (this *roomSrv) Join(rid, uid uint) (err error) {
 	}
 
 	// 如果是俱乐部房间，检查是否属于该俱乐部，否则不能进入
-	if room.ClubId>0{
-		u,e:=dao.Club.GetUser(room.ClubId,uid)
-		if e!=nil {
+	if room.ClubId > 0 {
+		u, e := dao.Club.GetUser(room.ClubId, uid)
+		if e != nil {
 			err = e
 			return
 		}
-		if u.Status == enum.ClubUserWait{
+		if u.Status == enum.ClubUserWait {
 			err = errors.New("您的账号还没审核通过，无法加入房间!")
 			return
-		} else if u.Status == enum.ClubUserDisable{
+		} else if u.Status == enum.ClubUserDisable {
 			err = errors.New("您的账号已被当前茶楼老板冻结，无法加入该茶楼的房间!")
 			return
 		}
@@ -271,11 +270,30 @@ func (this *roomSrv) Join(rid, uid uint) (err error) {
 func (this *roomSrv) Exit(rid, uid uint) (err error) {
 	defer func() {
 		if err == nil {
-			this.SendExit(rid, uid)
+
+			// 是否是房主
+			playerFirst, _ := dao.Game.FirstPlayer(rid)
+
 			if ret := dao.Db().Model(model.Player{}).Where("uid=? and room_id=?", uid, rid).Update(map[string]interface{}{"desk_id": 0, "joined_at": nil}); ret.Error != nil {
 				glog.Error(ret.Error)
 				return
 			}
+
+			// 如果是普通房间，到此结束，后面是茶楼房间的逻辑
+			room, _ := dao.Room.Get(rid)
+			if room.ClubId == 0 {
+				this.SendExit(rid, uid, 0)
+				return
+			} else {
+				// 如果是房主退出，就把下一个进入房间的玩家设置为房主
+				newBoss := uint(0)
+				if playerFirst.Uid == uid {
+					playerFirst, _ = dao.Game.FirstPlayer(room.ID)
+					newBoss = playerFirst.Uid
+				}
+				this.SendExit(rid, uid, newBoss)
+			}
+
 		}
 	}()
 
@@ -293,7 +311,16 @@ func (this *roomSrv) Exit(rid, uid uint) (err error) {
 	return
 }
 
-func (this *roomSrv) SendExit(rid, uid uint) {
+func (this *roomSrv) SendExit(rid, uid, newBoss uint) {
+	msg := utils.Msg("").AddData("roomId", rid).AddData("uid", uid)
+	if newBoss > 0 {
+		msg.AddData("newBoss", newBoss)
+	}
 	// 通知其他客户端玩家，我退出了
-	game.SendToAllPlayers(utils.Msg("").AddData("roomId", rid).AddData("uid", uid), game.ResLeaveRoom, rid)
+	game.SendToAllPlayers(msg, game.ResLeaveRoom, rid)
+	p:=game.GetPlayer(uid)
+	if p==nil {
+		return
+	}
+	msg.Send(game.ResLeaveRoom,p.Session)
 }

@@ -10,5 +10,5 @@ sms:
   reg_tpl_code: SMS_155370082 # 注册模板编号
   loginTplCode: SMS_119082858 # 登录模板编号
 wechat:
-  id: wx98734283bb3e480f
-  secret: e4fb077a6678bbb1101aec0791fde3b9
+  id: wx95ffdfe60fda9906
+  secret: 9c1da975fd9777f709e1d4349065aa46

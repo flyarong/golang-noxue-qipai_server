@@ -143,8 +143,8 @@ func (this *clubSrv) getClubUser(clubId, userId uint) (cu model.ClubUser, err er
 		err = errors.New("用户不属于该茶楼")
 		return
 	}
-	dao.Db().Where(&model.ClubUser{ClubId: clubId, Uid: userId}).First(&cu)
-	if cu.ID == 0 {
+	ret := dao.Db().Where(&model.ClubUser{ClubId: clubId, Uid: userId}).First(&cu)
+	if ret.RecordNotFound() {
 		err = errors.New("没在茶楼找到该用户")
 		return
 	}
