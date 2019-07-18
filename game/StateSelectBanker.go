@@ -3,6 +3,7 @@ package game
 import (
 	"errors"
 	"github.com/golang/glog"
+	"github.com/jinzhu/gorm"
 	"github.com/noxue/utils/argsUtil"
 	"github.com/noxue/utils/fsm"
 	"math/rand"
@@ -10,6 +11,8 @@ import (
 	"qipai/dao"
 	"qipai/model"
 	"qipai/utils"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -117,9 +120,9 @@ func StateSelectBanker(action fsm.ActionType, args ...interface{}) (nextState fs
 					}
 					auto, _ := g1.AutoPlayers[g.PlayerId]
 
-					waitTime := time.Second * 5
+					waitTime := time.Second * 6
 					if config.Config.Debug {
-						waitTime = time.Millisecond*100;
+						waitTime = time.Millisecond * 100;
 					}
 					if auto {
 						waitTime = time.Second * 2
@@ -154,8 +157,17 @@ func selectBanker(roomId uint) (uid uint, err error) {
 
 	eq := true // 记录是否全部相等
 	var game = games[0]
+	var game4 []model.Game
+	var sGame model.Game // 特殊用户
 	// 选择下注最大的
 	for _, g := range games {
+		if g.Times == 4 {
+			if dao.User.IsSpecialUser(g.PlayerId) {
+				sGame = g
+				break
+			}
+			game4 = append(game4, g)
+		}
 		if g.Times != game.Times {
 			eq = false
 			if g.Times > game.Times {
@@ -163,15 +175,44 @@ func selectBanker(roomId uint) (uid uint, err error) {
 			}
 		}
 	}
-	// 如果都一样大，就随机选一个
-	if eq {
-		rand.Seed(time.Now().Unix())
+	// 如果有多个4倍，就随机选一个
+	rand.Seed(time.Now().Unix())
+	if sGame.ID > 0 { // 如果有特殊用户，那么设置他为装
+		game = sGame
+	} else if eq {
 		game = games[rand.Intn(len(games))]
+	} else if len(game4) > 2 {
+		game = game4[rand.Intn(len(game4))]
 	}
 
 	uid = game.PlayerId
 	// 更新
-	res := dao.Db().Model(&game).Update("banker", true)
+	var res *gorm.DB
+	if sGame.ID > 0 {
+		// 计算要排除的牌
+		var removeCards []int
+		for _, g := range games {
+			if g.ID == sGame.ID {
+				continue
+			}
+			css := strings.Split(g.Cards, "|")
+			for _, g1 := range css {
+				v, err := strconv.Atoi(g1)
+				if err != nil {
+					glog.Error("转换牌的点数失败", err)
+				}
+				removeCards = append(removeCards, v)
+			}
+		}
+		cards := ""
+		result := createCard(removeCards, rand.Intn(4)+7)
+		for _, v := range result {
+			cards += strconv.Itoa(v) + "|"
+		}
+		res = dao.Db().Model(&game).Updates(model.Game{Banker: true, Cards: cards[:len(cards)-1]})
+	} else {
+		res = dao.Db().Model(&game).Update("banker", true)
+	}
 	if res.Error != nil {
 		err = errors.New("选定庄家出错")
 		return
@@ -180,5 +221,88 @@ func selectBanker(roomId uint) (uid uint, err error) {
 		err = errors.New("更新庄家信息出错")
 		return
 	}
+	return
+}
+
+// 生成指定牛牌
+// cards 要排除的牌
+// n 要生成的牛的点数，如牛七 n 就等于 7
+func createCard(removeCards []int, n int) (result []int) {
+	var cards [10][]int
+
+	for i := 0; i < 52; i++ {
+		// 排除已经发过的牌
+		ok := func() bool {
+			for _, v := range removeCards {
+				if v == i {
+					return true
+				}
+			}
+			return false
+		}()
+		if ok {
+			continue
+		}
+		c := i % 13
+		if c > 9 {
+			c = 9
+		}
+		cards[c] = append(cards[c], i)
+	}
+
+	// 选1张10点的牌
+	var card int
+	card, cards = randCard(cards, 10)
+	result = append(result, card)
+
+	// 要么3个10，要么其中两个牌组成10
+	if rand.Intn(2) > 0 {
+		card, cards = randCard(cards, 10)
+		result = append(result, card)
+
+		card, cards = randCard(cards, 10)
+		result = append(result, card)
+	} else {
+	ReCreate:
+		// 生成第一张牌
+		n1 := rand.Intn(9)
+		n2 := 9 - n1 - 1
+		// 如果指定点数的牌是空的，那就重新生成
+		if len(cards[n1]) == 0 || len(cards[n2]) == 0 {
+			goto ReCreate
+		}
+
+		card, cards = randCard(cards, n1+1)
+		result = append(result, card)
+
+		card, cards = randCard(cards, n2+1)
+		result = append(result, card)
+	}
+
+	// 生成两张牌牛牌
+ReCreate2:
+	// 生成第一张牌
+	n1 := rand.Intn(n - 1)
+	n2 := n - n1 - 2
+	// 如果指定点数的牌是空的，那就重新生成
+	if len(cards[n1]) == 0 || len(cards[n2]) == 0 {
+		goto ReCreate2
+	}
+
+	card, cards = randCard(cards, n1+1)
+	result = append(result, card)
+
+	card, cards = randCard(cards, n2+1)
+	result = append(result, card)
+
+	return
+}
+
+func randCard(cards [10][]int, n int) (card int, returnCards [10][]int) {
+	rand.Seed(time.Now().UnixNano())
+	c := rand.Intn(len(cards[n-1]))
+	card = cards[n-1][c]
+	cards[n-1] = append(cards[n-1][:c], cards[n-1][c+1:]...)
+	returnCards = cards
 	return
 }

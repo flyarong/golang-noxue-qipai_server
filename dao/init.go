@@ -41,6 +41,7 @@ func init() {
 		&model.Player{},
 		&model.Event{},
 		&model.Game{},
+		&model.SpecialUser{},
 	)
 
 	// 第一次创建，到此处还没有test表，才执行下面操作

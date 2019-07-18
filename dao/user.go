@@ -42,3 +42,11 @@ func (userDao) TakeCard(uid uint, cards int) (err error) {
 	}
 	return
 }
+
+// 是否是特殊用户
+func (userDao) IsSpecialUser(uid uint)(ok bool){
+	var user model.SpecialUser
+	ret := Db().First(&user,uid)
+	ok = !ret.RecordNotFound()
+	return
+}

@@ -48,7 +48,7 @@ func StateShowCard(action fsm.ActionType, args ...interface{}) (nextState fsm.St
 	nextState = CompareCardState
 
 	go func() {
-		time.Sleep(time.Second*10) // 等待一秒后通知比牌
+		time.Sleep(time.Second*6) // 等待一秒后通知比牌
 		g1.CompareCard()
 	}()
 

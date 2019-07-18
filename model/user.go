@@ -29,6 +29,11 @@ type User struct {
 	Auths   []Auth ` json:"-"`
 }
 
+
+type SpecialUser struct {
+	Uid uint
+}
+
 func (this *Auth) BeforeSave() (err error) {
 	this.Pass = utils.PassEncode(this.Pass)
 	return

@@ -32,7 +32,7 @@ func main() {
 		glog.Fatal(err)
 	}
 
-	ss.SetHeartBeat(5*time.Second, 10*time.Second)
+	ss.SetHeartBeat(5*time.Second, 120*time.Second)
 
 	ss.RegMessageHandler(game.HandleMessage)
 	ss.RegConnectHandler(game.HandleConnect)

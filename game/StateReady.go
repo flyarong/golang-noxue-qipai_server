@@ -48,7 +48,7 @@ func StateReady(action fsm.ActionType, args ...interface{}) (nextState fsm.State
 				}
 
 				auto, _ := g.AutoPlayers[player.Uid]
-				var t time.Duration = 10 // 正常10秒钟
+				var t time.Duration = 6 // 正常6秒钟
 				if config.Config.Debug {
 					t = 1;
 				}
