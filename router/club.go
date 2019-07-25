@@ -209,12 +209,12 @@ func reqCreateClubRoom(s *zero.Session, msg *zero.Message) {
 	ret := dao.Db().Where(&model.Room{ClubId: data.ClubId, TableId: data.TableId}).First(&r)
 	if !ret.RecordNotFound() {
 		// 如果房里有人，直接返回房间号
-		if len(dao.Room.PlayersSitDown(r.ID))>0 {
+		if len(dao.Room.PlayersSitDown(r.ID)) > 0 {
 			res = utils.Msg("").AddData("clubId", r.ClubId).AddData("roomId", r.ID).AddData("uid", p.Uid)
 			return
 		}
 		// 否则删除房间重新创建
-		srv.Room.Delete(r.ID,r.Uid)
+		srv.Room.Delete(r.ID, r.Uid)
 	}
 
 	var room model.Room
@@ -431,8 +431,8 @@ func reqDelClub(s *zero.Session, msg *zero.Message) {
 		return
 	}
 
-	ret:=dao.Db().Unscoped().Where("club_id=?",data.ClubId).Delete(model.ClubRoom{})
-	if ret.Error!=nil {
+	ret := dao.Db().Unscoped().Where("club_id=?", data.ClubId).Delete(model.ClubRoom{})
+	if ret.Error != nil {
 		glog.Error(ret.Error)
 		res = utils.Msg("删除茶楼房间相关信息失败").Code(-1)
 		return
@@ -674,6 +674,7 @@ func createClub(s *zero.Session, msg *zero.Message) {
 		Players   int            `json:"players"`
 		Score     enum.ScoreType `json:"score"`
 		Pay       enum.PayType   `json:"pay"`
+		Tui       bool           `json:"tui"`
 		Count     int            `json:"count"`
 		StartType enum.StartType `json:"start"`
 		Times     int            `json:"times"`
@@ -775,6 +776,7 @@ func editClubRoom(s *zero.Session, msg *zero.Message) {
 		Count     int            `json:"count"`
 		StartType enum.StartType `json:"start"`
 		Times     int            `json:"times"`
+		Tui       bool           `json:"tui"`
 	}
 
 	var form reqForm
@@ -850,7 +852,9 @@ func editClubRoom(s *zero.Session, msg *zero.Message) {
 			return
 		}
 	} else {
-		ret = dao.Db().Model(model.ClubRoom{}).Where("club_id=? and table_id=?", form.ClubId, form.TableId).Update(clubRoom)
+		ret = dao.Db().Model(model.ClubRoom{}).Where("club_id=? and table_id=?", form.ClubId, form.TableId).Update(
+			map[string]interface{}{"players": clubRoom.Players, "count": clubRoom.Count, "score": clubRoom.Score, "tui": clubRoom.Tui, "times": clubRoom.Times},
+		)
 		if ret.Error != nil {
 			glog.Error(ret.Error)
 			res = utils.Msg("更新茶楼房间信息出错").Code(-1)

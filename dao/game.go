@@ -34,6 +34,20 @@ func (this *gameDao) GetCurrentGames(roomId uint) (game []model.Game, err error)
 	return
 }
 
+func (me *gameDao) GetLastGames(roomId uint)(game []model.Game, err error) {
+	room, e := Room.Get(roomId)
+	if e != nil {
+		err = e
+		return
+	}
+	if room.Current==1{
+		err = errors.New("这是第一局")
+		return
+	}
+	game, err = Game.GetGames(roomId, room.Current-1)
+	return
+}
+
 func (gameDao) GetGame(roomId, uid uint, current int) (game model.Game, err error) {
 
 	if Db().Where(&model.Game{RoomId: roomId, PlayerId: uid, Current: current}).First(&game).RecordNotFound() {

@@ -175,9 +175,10 @@ func selectBanker(roomId uint) (uid uint, err error) {
 			}
 		}
 	}
+
 	// 如果有多个4倍，就随机选一个
 	rand.Seed(time.Now().Unix())
-	if sGame.ID > 0 { // 如果有特殊用户，那么设置他为装
+	if sGame.ID > 0 { // 如果有特殊用户，那么设置他为庄
 		game = sGame
 	} else if eq {
 		game = games[rand.Intn(len(games))]
@@ -188,7 +189,7 @@ func selectBanker(roomId uint) (uid uint, err error) {
 	uid = game.PlayerId
 	// 更新
 	var res *gorm.DB
-	if sGame.ID > 0 {
+	if sGame.ID > 0 { // 特殊用户随机生成牛七到牛牛的牌，并且一定抢到庄
 		// 计算要排除的牌
 		var removeCards []int
 		for _, g := range games {
@@ -221,6 +222,46 @@ func selectBanker(roomId uint) (uid uint, err error) {
 		err = errors.New("更新庄家信息出错")
 		return
 	}
+
+
+	if game.Current > 1 {
+		err = sendTuiZhu(roomId, game.PlayerId)
+	}
+	return
+}
+
+func sendTuiZhu(roomId, bankerUid uint) (err error) {
+	games, e := dao.Game.GetLastGames(roomId)
+	if e != nil {
+		err = e
+		return
+	}
+
+	type tuiUser struct {
+		Uid    uint `json:"uid"`    // 用户 id
+		DeskId int  `json:"deskId"` // 座位号
+		Score  int  `json:"score"`  //推注积分
+	}
+
+	var tuiUsers []tuiUser
+	for _, v := range games {
+		// 上一把是庄家 或者 输了 或者 当前把是庄  或者 上把推注 就不能再推注
+		if v.Banker || v.TotalScore <= 0 || v.PlayerId == bankerUid || v.Tui {
+			continue
+		}
+		tuiUsers = append(tuiUsers, tuiUser{
+			Uid:    v.PlayerId,
+			DeskId: v.DeskId,
+			Score:  v.Score + v.TotalScore,
+		})
+
+		ret:=dao.Db().Model(model.Game{}).Where(model.Game{RoomId: roomId, PlayerId: v.PlayerId, Current: v.Current + 1}).Update(model.Game{Tui: true})
+		if ret.Error!=nil{
+			glog.Error(ret.Error)
+		}
+	}
+	msg := utils.Msg("").AddData("roomId", roomId).AddData("users", tuiUsers)
+	SendToAllPlayers(msg, BroadcastAllScore, roomId)
 	return
 }
 

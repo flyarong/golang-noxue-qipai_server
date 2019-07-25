@@ -79,6 +79,7 @@ const (
 	ResGameResult         // 返回游戏战绩
 	ReqGamePlayers        // 请求游戏玩家
 	ResGamePlayers
+	BroadcastAllScore // 推注
 )
 
 // 茶楼相关

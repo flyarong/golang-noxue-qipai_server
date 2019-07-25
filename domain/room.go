@@ -9,6 +9,7 @@ type ReqCreateRoom struct {
 	Count     int            `json:"count"`
 	StartType enum.StartType `json:"start"`
 	Times     int            `json:"times"`
+	Tui       bool           `json:"tui"`
 }
 
 type ResRoomV struct {

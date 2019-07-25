@@ -60,7 +60,7 @@ func StateSetScore(action fsm.ActionType, args ...interface{}) (nextState fsm.St
 		return
 	}
 
-	ret := dao.Db().Model(&model.Game{}).Where("room_id=? and player_id=? and current=? and banker=0", roomId, uid, room.Current).Update(map[string]interface{}{"score": score, "auto": auto})
+	ret := dao.Db().Model(&model.Game{}).Where("room_id=? and player_id=? and current=? and banker=0 and score=0", roomId, uid, room.Current).Update(map[string]interface{}{"score": score, "auto": auto})
 	if ret.Error != nil {
 		res = utils.Msg(ret.Error.Error()).Code(-1)
 		return

@@ -29,6 +29,7 @@ type ClubRoomBase struct {
 	King      enum.KingType  // 王癞 0 无王癞  1 经典王癞 2 疯狂王癞
 	Uid       uint           // 老板
 	BossNick  string         // 老板昵称
+	Tui       bool           // 是否推注
 }
 
 type Room struct {
@@ -42,8 +43,8 @@ type Room struct {
 // 记录茶楼每一桌的属性，创建茶楼房间的时候，优先根据这个属性创建房间
 type ClubRoom struct {
 	ClubRoomBase
-	ClubId  uint            // 属于哪个俱乐部
-	TableId int             // 俱乐部第几桌
+	ClubId  uint // 属于哪个俱乐部
+	TableId int  // 俱乐部第几桌
 }
 
 // 记录俱乐部的用户
@@ -81,11 +82,5 @@ type Game struct {
 	Cards      string `json:"cards"`                   // 用户所拥有的牌
 	Current    int    `json:"current"`                 // 这是第几局
 	Auto       bool   `json:"auto"`                    // 是否自动托管
-}
-
-type Event struct {
-	gorm.Model
-	Uid  uint `sql:"index"`
-	Name string
-	Args string
+	Tui        bool   `json:"tui"`                     // 当局是否推注
 }

@@ -226,8 +226,20 @@ func (this *gameSrv) SetScore(roomId, uid uint, score int) (err error) {
 	s := ss[room.Score]
 
 	if s[0] != score && s[1] != score {
-		err = errors.New("积分不合法")
-		return
+
+		// 是否是推注
+		var s int
+		if room.Current > 1 {
+			s, e = this.TuiZhu(roomId, uid)
+			if e != nil {
+				err = e
+				return
+			}
+		}
+		if s == 0 || s != score {
+			err = errors.New("积分不合法")
+			return
+		}
 	}
 
 	g, e := dao.Game.GetCurrentGame(roomId, uid)
@@ -247,5 +259,28 @@ func (this *gameSrv) SetScore(roomId, uid uint, score int) (err error) {
 		return
 	}
 	g1.SetScore(uid, score, false)
+	return
+}
+
+func (me *gameSrv) TuiZhu(roomId, uid uint) (score int, err error) {
+	room, e := dao.Room.Get(roomId)
+	if e != nil {
+		err = e
+		return
+	}
+	if room.Current == 1 {
+		err = errors.New("这是第一局")
+		return
+	}
+
+	g, e := dao.Game.GetGame(roomId, uid, room.Current-1)
+	if e != nil {
+		err = e
+		return
+	}
+	// 如果赢了，才可以推注
+	if g.TotalScore > 0 {
+		score = g.Score + g.TotalScore
+	}
 	return
 }

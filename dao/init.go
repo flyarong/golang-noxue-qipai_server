@@ -29,7 +29,7 @@ func init() {
 
 	db = db.Set("gorm:table_options", "ENGINE=InnoDB  DEFAULT CHARSET=utf8mb4;")
 
-	db.LogMode(config.Config.Debug)
+	db.LogMode(true)
 
 	Db().AutoMigrate(
 		&model.Auth{},
@@ -39,7 +39,6 @@ func init() {
 		&model.ClubRoom{},
 		&model.ClubUser{},
 		&model.Player{},
-		&model.Event{},
 		&model.Game{},
 		&model.SpecialUser{},
 	)
